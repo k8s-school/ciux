@@ -1,0 +1,4 @@
+- Compute dependencies image name w.r.t branch name or latest git version tag
+- Add vXXX-untested if image does not exists
+- Promote image in CI if e2e tests passes, for main branch only
+- cleanup vXXXX-untested
