@@ -61,7 +61,7 @@ func GitLsRemote(repoUrl string, reference string) {
 
 	refs, err := rem.List(&git.ListOptions{
 		// Returns all references, including peeled references.
-		PeelingOption: git.IgnorePeeled,
+		PeelingOption: git.AppendPeeled,
 	})
 
 	if err != nil {
@@ -69,10 +69,19 @@ func GitLsRemote(repoUrl string, reference string) {
 		log.Fatal(err)
 	}
 
+	// Find annotated tags
+	// the one with ^{} is the annotated tag
+	// 2023/10/13 18:18:06 Tags found: v0.1
+	// 2023/10/13 18:18:06 Tags found: lsst-france-meeting-may-2014
+	// 2023/10/13 18:18:06 Tags found: test
+	// 2023/10/13 18:18:06 Tags found: v0.5
+	// 2023/10/13 18:18:06 Tags found: v0.1^{}
+	// 2023/10/13 18:18:06 Tags found: v0.5^{}
+
 	var tags []string
 	for _, ref := range refs {
 		if ref.Name().IsTag() {
-			log.Printf("Tags found: %v", ref.Name().IsNote())
+			log.Printf("Tags found: %v", ref.Name().Short())
 			tags = append(tags, ref.Name().Short())
 		}
 	}

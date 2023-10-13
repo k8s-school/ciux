@@ -169,5 +169,5 @@ func TestGitDescribeWithBranch(t *testing.T) {
 }
 
 func TestGitLsRemote(t *testing.T) {
-	GitLsRemote("https://github.com/lsst/qserv.git", "v1")
+	GitLsRemote("https://github.com/fjammes/misc.git", "v1")
 }
