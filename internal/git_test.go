@@ -167,3 +167,7 @@ func TestGitDescribeWithBranch(t *testing.T) {
 	repo.CreateTag("v2.0.0", commit3, nil)
 	test("v2.0.0", 1, commit4.String())
 }
+
+func TestGitLsRemote(t *testing.T) {
+	GitLsRemote("https://github.com/lsst/qserv.git", "v1")
+}

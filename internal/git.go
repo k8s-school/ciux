@@ -2,10 +2,13 @@ package internal
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/storage/memory"
 )
 
 // GitTagMap ...
@@ -45,6 +48,41 @@ func GitBranchName(repo git.Repository) (*string, error) {
 	}
 	branchName := head.Name().Short()
 	return &branchName, nil
+}
+
+// GitLsRemote
+// https://github.com/go-git/go-git/blob/master/_examples/ls-remote/main.go
+func GitLsRemote(repoUrl string, reference string) {
+
+	rem := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
+		Name: "origin",
+		URLs: []string{repoUrl},
+	})
+
+	refs, err := rem.List(&git.ListOptions{
+		// Returns all references, including peeled references.
+		PeelingOption: git.IgnorePeeled,
+	})
+
+	if err != nil {
+		// TODO share logger between packages
+		log.Fatal(err)
+	}
+
+	var tags []string
+	for _, ref := range refs {
+		if ref.Name().IsTag() {
+			log.Printf("Tags found: %v", ref.Name().IsNote())
+			tags = append(tags, ref.Name().Short())
+		}
+	}
+
+	if len(tags) == 0 {
+		log.Println("No tags!")
+	}
+
+	log.Printf("Tags found: %v", tags)
+
 }
 
 // GitDescribe
