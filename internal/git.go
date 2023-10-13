@@ -38,6 +38,15 @@ func GitTagMap(repo git.Repository) (*map[string]string, error) {
 	return &tagMap, nil
 }
 
+func GitBranchName(repo git.Repository) (*string, error) {
+	head, err := repo.Head()
+	if err != nil {
+		return nil, fmt.Errorf("unable to find head: %v", err)
+	}
+	branchName := head.Name().Short()
+	return &branchName, nil
+}
+
 // GitDescribe
 func GitDescribe(repo git.Repository) (*string, *int, *string, *bool, error) {
 	type gitDescribeNode struct {
@@ -53,6 +62,7 @@ func GitDescribe(repo git.Repository) (*string, *int, *string, *bool, error) {
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("unable to find worktree status: %v", err)
 	}
+
 	var dirty bool
 	if status.IsClean() {
 		dirty = false
