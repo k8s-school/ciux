@@ -4,52 +4,11 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"fmt"
-	"os"
-
-	"github.com/go-git/go-git/v5"
 	"github.com/k8s-school/ciux/internal"
-	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
-func run(dir string, deps []string) (*string, error) {
-	repo, err := git.PlainOpen(dir)
-	if err != nil {
-		return nil, fmt.Errorf("unable to open git repository: %v", err)
-	}
-	fmt.Println("XXXXXXXXXXXXXXXXXXXXXX" + dir)
-	tagName, counter, headHash, dirty, err := internal.GitDescribe(*repo)
-	if err != nil {
-		return nil, fmt.Errorf("unable to describe commit: %v", err)
-	}
-	branchName, err := internal.GitBranchName(*repo)
-	if err != nil {
-		return nil, fmt.Errorf("unable to retrieve branch name: %v", err)
-	}
-	logger.Debugf("tag: %s, counter: %d, head: %s, dirty: %t", *tagName, *counter, *headHash, *dirty)
-	logger.Debugf("branch: %s", *branchName)
-
-	// Test if branchName equals master or main
-	if *branchName == "master" || *branchName == "main" {
-		log.Debug().Msg("Branch is master or main")
-	}
-
-	for _, dep := range deps {
-
-		_, err := git.PlainClone("/tmp/foo", false, &git.CloneOptions{
-			URL:          dep,
-			Progress:     os.Stdout,
-			SingleBranch: true,
-			//ReferenceName: *branchName,
-		})
-
-		if err != nil {
-			return nil, fmt.Errorf("unable to open git repository: %v", err)
-		}
-	}
-	return nil, nil
-}
+var dependency string
 
 // revisionCmd represents the revision command
 var revisionCmd = &cobra.Command{
@@ -61,11 +20,19 @@ and usage of using your command. For example:
 Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
+	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("revision called")
 		repository := args[0]
-		_, err := run(repository, args[1:])
+		gitMeta, err := internal.GetRevision(repository, args[1:])
 		internal.CheckIfError(err)
+		if len(dependency) == 0 {
+			internal.Info("Version: %+v", gitMeta.Revision)
+		} else {
+			depGitMeta, e := internal.GitLsRemote(dependency)
+			internal.CheckIfError(e)
+			internal.Info("Branches: %+v", depGitMeta.Branches)
+			internal.Info("Depency version: %+v", depGitMeta.Revision)
+		}
 	},
 }
 
@@ -79,7 +46,7 @@ func init() {
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// revisionCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	revisionCmd.Flags().StringVarP(&dependency, "dependency", "d", "", "Dependency repository")
 }
 
 // Create a golang function which returns the revision of a git repository
