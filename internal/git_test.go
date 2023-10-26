@@ -1,14 +1,13 @@
 package internal
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
 	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/k8s-school/ciux/log"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -153,24 +152,22 @@ func TestGitLsRemote(t *testing.T) {
 	assert.NoError(err)
 	_, _, err = gitRemoteMeta.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
 	assert.NoError(err)
-	branchName := "testbranch"
-	localRef := plumbing.NewBranchReferenceName(branchName)
 	repo := gitRemoteMeta.Repository
 	worktree, err := repo.Worktree()
 	assert.NoError(err)
 
 	// Create branch
-	opts := &config.Branch{
-		Name:   branchName,
-		Remote: "origin",
-		Merge:  localRef,
-	}
-	err = repo.CreateBranch(opts)
+
+	branchName := "testbranch"
+	branch := fmt.Sprintf("refs/heads/%s", branchName)
+	b := plumbing.ReferenceName(branch)
+	err = worktree.Checkout(&git.CheckoutOptions{Create: true, Force: false, Branch: b})
 	assert.NoError(err)
 	branchIter, err := repo.Branches()
 	assert.NoError(err)
+
 	branchIter.ForEach(func(r *plumbing.Reference) error {
-		log.Debugf("Branch %s", r.Name())
+		t.Logf("Branch %s", r.Name())
 		return nil
 	})
 
