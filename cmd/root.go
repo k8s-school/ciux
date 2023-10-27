@@ -19,6 +19,7 @@ package cmd
 import (
 	"os"
 
+	"github.com/k8s-school/ciux/internal"
 	"github.com/k8s-school/ciux/log"
 	"github.com/spf13/cobra"
 )
@@ -30,7 +31,7 @@ var (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "finkctl",
+	Use:   "ciux",
 	Short: "Command-line tool for managing and interacting with the Fink broker and its components on Spark over Kubernetes",
 	Long: `finkctl is a command-line tool for managing and interacting with the Fink broker and its components.
 
@@ -59,7 +60,7 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().IntVarP(&verbosity, "verbosity", "v", 0, "Verbosity level (-v0 for minimal, -v2 for maximum)")
-	cobra.OnInitialize(initLogger)
+	cobra.OnInitialize(initLogger, internal.ReadConfig)
 
 	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Only print the command")
 }

@@ -24,20 +24,6 @@ const (
 	LvlError   Level = 20  // LvlError defines the ERR verbosity level
 )
 
-func (lvl Level) MsgString() string {
-	switch lvl {
-	case LvlDebug:
-		return "DBG "
-	case LvlInfo:
-		return "INFO"
-	case LvlWarning:
-		return "WARN"
-	case LvlError:
-		return "ERR "
-	}
-	panic(fmt.Errorf("log: invalid log.Level value [%d]", int(lvl)))
-}
-
 // String prints the human-readable representation of a Level value.
 func (lvl Level) String() string {
 	switch lvl {
@@ -165,7 +151,7 @@ func (msg msgstream) Msg(lvl Level, format string, a ...interface{}) {
 	if !strings.HasSuffix(format, "\n") {
 		eol = "\n"
 	}
-	format = msg.n + lvl.MsgString() + " " + format + eol
+	format = msg.n + lvl.String() + " " + format + eol
 	log.Printf(format, a...)
 }
 

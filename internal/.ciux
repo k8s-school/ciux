@@ -1,0 +1,8 @@
+registry: test-registry.io
+dependencies:
+  - url: http://github.com/test
+    # If true repository will be locally cloned
+    clone: true
+    # If true, container image will be pulled
+    pull: true
+

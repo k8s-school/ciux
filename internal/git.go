@@ -199,21 +199,20 @@ func (repo *GitMeta) GitDescribe() error {
 	return nil
 }
 
-func GetRevision(dir string, deps []string) (repo *GitMeta, e error) {
-	repo = &GitMeta{}
+func (repo *GitMeta) Analyze(dir string, deps []string) (e error) {
 	r, err := git.PlainOpen(dir)
 	if err != nil {
-		return nil, fmt.Errorf("unable to open git repository: %v", err)
+		return fmt.Errorf("unable to open git repository: %v", err)
 	}
 	repo.Repository = r
 	err = repo.GitDescribe()
 	if err != nil {
-		return nil, fmt.Errorf("unable to describe commit: %v", err)
+		return fmt.Errorf("unable to describe commit: %v", err)
 	}
 
 	log.Debugf("%+v", repo.Revision)
 
-	return repo, nil
+	return nil
 }
 
 func (repo *GitMeta) TaggedCommit(filename string, message string, tag string, annotatedTag bool, author object.Signature) (*plumbing.Hash, *plumbing.Reference, error) {

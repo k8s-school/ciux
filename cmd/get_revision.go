@@ -23,15 +23,20 @@ to quickly create a Cobra application.`,
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		repository := args[0]
-		gitMeta, err := internal.GetRevision(repository, args[1:])
+		dependencies := args[1:]
+		gitMeta := internal.GitMeta{}
+		err := gitMeta.Analyze(repository, dependencies)
 		internal.CheckIfError(err)
-		if len(dependency) == 0 {
+		if len(dependencies) == 0 {
 			internal.Info("Version: %+v", gitMeta.Revision)
-		} else {
-			depGitMeta, e := internal.GitLsRemote(dependency)
+			return
+		}
+
+		for _, dep := range dependencies {
+			depGitMeta, e := internal.GitLsRemote(dep)
 			internal.CheckIfError(e)
 			internal.Info("Branches: %+v", depGitMeta.Branches)
-			internal.Info("Depency version: %+v", depGitMeta.Revision)
+			internal.Info("Depedenncy version: %+v", depGitMeta.Revision)
 		}
 	},
 }
