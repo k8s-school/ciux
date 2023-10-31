@@ -22,8 +22,8 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func gitDescribeTest(assert *assert.Assertions, gitMeta GitMeta, expectedTagName string, expectedCounter int, expectedHeadHash string, expectedDirty bool) {
-	err := gitMeta.GitDescribe()
+func gitDescribeTest(assert *assert.Assertions, gitMeta Git, expectedTagName string, expectedCounter int, expectedHeadHash string, expectedDirty bool) {
+	err := gitMeta.Describe()
 	revision := gitMeta.Revision
 	assert.NoError(err)
 	assert.Equal(expectedTagName, revision.TagName)
@@ -32,9 +32,9 @@ func gitDescribeTest(assert *assert.Assertions, gitMeta GitMeta, expectedTagName
 	assert.Equal(expectedDirty, revision.Dirty)
 }
 
-func initGitRepo() (*GitMeta, error) {
+func initGitRepo() (*Git, error) {
 
-	gitMeta := GitMeta{}
+	gitMeta := Git{}
 
 	dir, err := os.MkdirTemp("/tmp", "ciux-git-test-")
 	if err != nil {
@@ -148,11 +148,15 @@ func TestGitDescribeWithBranch(t *testing.T) {
 
 func TestGitLsRemote(t *testing.T) {
 	assert := assert.New(t)
-	gitRemoteMeta, err := initGitRepo()
+	gitMeta, err := initGitRepo()
 	assert.NoError(err)
-	_, _, err = gitRemoteMeta.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
+	root, err := gitMeta.getRoot()
 	assert.NoError(err)
-	repo := gitRemoteMeta.Repository
+	t.Logf("repo root: %s", root)
+	assert.NoError(err)
+	_, _, err = gitMeta.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
+	assert.NoError(err)
+	repo := gitMeta.Repository
 	worktree, err := repo.Worktree()
 	assert.NoError(err)
 
@@ -171,9 +175,40 @@ func TestGitLsRemote(t *testing.T) {
 		return nil
 	})
 
-	gitMeta, err := GitLsRemote("file://" + worktree.Filesystem.Root())
+	gitRemMeta, err := GitLsRemote("file://" + worktree.Filesystem.Root())
 	assert.NoError(err)
 	// TODO improve this test
-	assert.Contains(gitMeta.Branches, "master")
-	assert.Contains(gitMeta.Branches, "testbranch")
+	assert.Contains(gitRemMeta.Branches, "master")
+	assert.Contains(gitRemMeta.Branches, "testbranch")
+}
+
+func TestHasBranch(t *testing.T) {
+	assert := assert.New(t)
+
+	// Test for local repository
+	gitMeta, err := initGitRepo()
+	assert.NoError(err)
+	root, err := gitMeta.getRoot()
+	assert.NoError(err)
+	t.Logf("repo root: %s", root)
+	_, _, err = gitMeta.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
+	assert.NoError(err)
+	repo := gitMeta.Repository
+	worktree, err := repo.Worktree()
+	assert.NoError(err)
+
+	branchName := "testbranch"
+	branch := fmt.Sprintf("refs/heads/%s", branchName)
+	b := plumbing.ReferenceName(branch)
+	err = worktree.Checkout(&git.CheckoutOptions{Create: true, Force: false, Branch: b})
+	assert.NoError(err)
+
+	assert.True(gitMeta.HasBranch(branchName))
+	assert.False(gitMeta.HasBranch("notexist"))
+
+	// Test for remote repository
+	gitRemoteMeta, err := GitLsRemote("file://" + worktree.Filesystem.Root())
+	assert.NoError(err)
+	assert.True(gitRemoteMeta.HasBranch(branchName))
+	assert.False(gitRemoteMeta.HasBranch("notexist"))
 }

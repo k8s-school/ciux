@@ -22,22 +22,15 @@ This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		repository := args[0]
+		repositoryPath := args[0]
 		dependencies := args[1:]
-		gitMeta := internal.GitMeta{}
-		err := gitMeta.Analyze(repository, dependencies)
+		gitMeta, err := internal.GitOpen(repositoryPath)
 		internal.CheckIfError(err)
 		if len(dependencies) == 0 {
 			internal.Info("Version: %+v", gitMeta.Revision)
 			return
 		}
 
-		for _, dep := range dependencies {
-			depGitMeta, e := internal.GitLsRemote(dep)
-			internal.CheckIfError(e)
-			internal.Info("Branches: %+v", depGitMeta.Branches)
-			internal.Info("Depedenncy version: %+v", depGitMeta.Revision)
-		}
 	},
 }
 

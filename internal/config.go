@@ -11,10 +11,17 @@ import (
 	defaults "github.com/mcuadros/go-defaults"
 )
 
-// readConfig reads in config file and ENV variables if set.
-func ReadConfig() {
-	configPath, err := os.Getwd()
-	cobra.CheckErr(err)
+// ReadConfig reads ciux config file
+// it uses repositoryPath if not null or current directory
+func ReadConfig(repositoryPath string) {
+	var configPath string
+	var err error
+	if len(repositoryPath) == 0 {
+		configPath, err = os.Getwd()
+		cobra.CheckErr(err)
+	} else {
+		configPath = repositoryPath
+	}
 
 	viper.AddConfigPath(configPath)
 	viper.SetConfigType("yaml")

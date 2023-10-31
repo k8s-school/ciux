@@ -19,7 +19,6 @@ package cmd
 import (
 	"os"
 
-	"github.com/k8s-school/ciux/internal"
 	"github.com/k8s-school/ciux/log"
 	"github.com/spf13/cobra"
 )
@@ -60,7 +59,7 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().IntVarP(&verbosity, "verbosity", "v", 0, "Verbosity level (-v0 for minimal, -v2 for maximum)")
-	cobra.OnInitialize(initLogger, internal.ReadConfig)
+	cobra.OnInitialize(initLogger)
 
 	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Only print the command")
 }

@@ -9,13 +9,13 @@ import (
 
 func TestReadConfig(t *testing.T) {
 	assert := assert.New(t)
-	ReadConfig()
+	ReadConfig("")
 	assert.Equal("test-registry.io", viper.AllSettings()["registry"])
 }
 
 func TestGetConfig(t *testing.T) {
 	assert := assert.New(t)
-	ReadConfig()
+	ReadConfig("")
 	c := GetConfig()
 	t.Logf("Config: %+v", c)
 	assert.Equal("test-registry.io", c.Registry)
