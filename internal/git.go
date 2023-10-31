@@ -67,7 +67,10 @@ func GitSemverTagMap(repo git.Repository) (*map[plumbing.Hash]*plumbing.Referenc
 	return &tagMap, nil
 }
 
-func GetDepsBranches(repositoryPath string) (*[]Git, error) {
+// GetDepsBranche returns the work branch for each dependency
+// It will the same branch as the main repository if it exists
+// or the default branch of the dependency repository otherwise
+func GetDepsBranche(repositoryPath string) (*[]Git, error) {
 	gitMeta, err := GitOpen(repositoryPath)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open git repository: %v", err)
@@ -89,6 +92,7 @@ func GetDepsBranches(repositoryPath string) (*[]Git, error) {
 		if hasBranch {
 			depGit.Revision.Branch = gitMeta.Revision.Branch
 		} else {
+			// Retrieve the default branch
 			depGit.Revision.Branch = "master"
 		}
 		Info("Dependency -> hasBranch: %t", hasBranch)
