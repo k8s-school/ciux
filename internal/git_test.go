@@ -290,7 +290,7 @@ func TestGetDepsBranches(t *testing.T) {
 	_, _, err = gitDepMeta.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
 	assert.NoError(err)
 
-	depGits, err := GetDepsBranche(root)
+	depGits, err := GetDepsBranch(root)
 	assert.NoError(err)
 
 	// Assert that the dependency has the correct branch information
@@ -301,7 +301,7 @@ func TestGetDepsBranches(t *testing.T) {
 	err = gitMeta.CreateBranch(branchName)
 	assert.NoError(err)
 
-	depGits, err = GetDepsBranche(root)
+	depGits, err = GetDepsBranch(root)
 	assert.NoError(err)
 	assert.Equal("master", (*depGits)[0].Revision.Branch)
 
@@ -309,7 +309,7 @@ func TestGetDepsBranches(t *testing.T) {
 	err = gitDepMeta.CreateBranch(branchName)
 	assert.NoError(err)
 
-	depGits, err = GetDepsBranche(root)
+	depGits, err = GetDepsBranch(root)
 	assert.NoError(err)
 	assert.Equal("testbranch", (*depGits)[0].Revision.Branch)
 

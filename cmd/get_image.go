@@ -21,7 +21,7 @@ to quickly create a Cobra application.`,
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		repositoryPath := args[0]
-		internal.GetDepsBranche(repositoryPath)
+		internal.GetDepsBranch(repositoryPath)
 	},
 }
 
