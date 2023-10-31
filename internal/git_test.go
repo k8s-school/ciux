@@ -3,11 +3,16 @@ package internal
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/mitchellh/mapstructure"
+	"github.com/spf13/viper"
+	"gopkg.in/yaml.v2"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -32,11 +37,17 @@ func gitDescribeTest(assert *assert.Assertions, gitMeta Git, expectedTagName str
 	assert.Equal(expectedDirty, revision.Dirty)
 }
 
-func initGitRepo() (*Git, error) {
+func initGitRepo(pattern string) (*Git, error) {
 
 	gitMeta := Git{}
 
-	dir, err := os.MkdirTemp("/tmp", "ciux-git-test-")
+	dir := os.TempDir()
+
+	if len(pattern) == 0 {
+		pattern = "ciux-git-test-"
+	}
+
+	dir, err := os.MkdirTemp(dir, pattern)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +62,7 @@ func initGitRepo() (*Git, error) {
 
 func TestGitSemverTagMap(t *testing.T) {
 	assert := assert.New(t)
-	repo, err := initGitRepo()
+	repo, err := initGitRepo("ciux-git-semver-test-")
 	assert.NoError(err)
 
 	tags, err := GitSemverTagMap(*repo.Repository)
@@ -101,7 +112,7 @@ func TestGitSemverTagMap(t *testing.T) {
 
 func TestGitDescribe(t *testing.T) {
 	assert := assert.New(t)
-	gitMeta, err := initGitRepo()
+	gitMeta, err := initGitRepo("ciux-git-describe-test-")
 	assert.NoError(err)
 	repo := gitMeta.Repository
 	worktree, err := repo.Worktree()
@@ -124,7 +135,7 @@ func TestGitDescribe(t *testing.T) {
 
 func TestGitDescribeWithBranch(t *testing.T) {
 	assert := assert.New(t)
-	gitMeta, err := initGitRepo()
+	gitMeta, err := initGitRepo("ciux-git-describe-test-")
 	assert.NoError(err)
 	repo := gitMeta.Repository
 	worktree, err := repo.Worktree()
@@ -148,7 +159,7 @@ func TestGitDescribeWithBranch(t *testing.T) {
 
 func TestGitLsRemote(t *testing.T) {
 	assert := assert.New(t)
-	gitMeta, err := initGitRepo()
+	gitMeta, err := initGitRepo("ciux-git-lsremote-test-")
 	assert.NoError(err)
 	root, err := gitMeta.getRoot()
 	assert.NoError(err)
@@ -186,11 +197,12 @@ func TestHasBranch(t *testing.T) {
 	assert := assert.New(t)
 
 	// Test for local repository
-	gitMeta, err := initGitRepo()
+	gitMeta, err := initGitRepo("ciux-git-hasbranch-test-")
 	assert.NoError(err)
 	root, err := gitMeta.getRoot()
 	assert.NoError(err)
 	t.Logf("repo root: %s", root)
+	defer os.RemoveAll(root)
 	_, _, err = gitMeta.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
 	assert.NoError(err)
 	repo := gitMeta.Repository
@@ -198,9 +210,7 @@ func TestHasBranch(t *testing.T) {
 	assert.NoError(err)
 
 	branchName := "testbranch"
-	branch := fmt.Sprintf("refs/heads/%s", branchName)
-	b := plumbing.ReferenceName(branch)
-	err = worktree.Checkout(&git.CheckoutOptions{Create: true, Force: false, Branch: b})
+	err = gitMeta.CreateBranch(branchName)
 	assert.NoError(err)
 
 	assert.True(gitMeta.HasBranch(branchName))
@@ -211,4 +221,96 @@ func TestHasBranch(t *testing.T) {
 	assert.NoError(err)
 	assert.True(gitRemoteMeta.HasBranch(branchName))
 	assert.False(gitRemoteMeta.HasBranch("notexist"))
+}
+func TestGetDepsBranches(t *testing.T) {
+	assert := assert.New(t)
+
+	// Create a temporary directory for the git repository
+	gitMeta, err := initGitRepo("ciux-git-getversions-test-")
+	assert.NoError(err)
+	root, err := gitMeta.getRoot()
+	assert.NoError(err)
+	defer os.RemoveAll(root)
+
+	// Create a custom .ciux file in the repository
+	pattern := "ciux-git-getversions-test-"
+	gitDepMeta, err := initGitRepo(pattern)
+	assert.NoError(err)
+	depRoot, err := gitDepMeta.getRoot()
+	defer os.RemoveAll(depRoot)
+	assert.NoError(err)
+	dep := Dependency{
+		Url:   "file://" + depRoot,
+		Clone: true,
+		Pull:  true,
+	}
+	c := Config{
+		Registry:     "test-registry.io",
+		Dependencies: []Dependency{dep},
+	}
+
+	items := map[string]interface{}{}
+	err = mapstructure.Decode(c, &items)
+	assert.NoError(err)
+	err = viper.MergeConfigMap(items)
+	assert.NoError(err)
+
+	yamlData, err := yaml.Marshal(items)
+	assert.NoError(err)
+	t.Logf("yamlData: %s", string(yamlData))
+	ciuxPath := filepath.Join(root, ".ciux")
+	f, err := os.Create(ciuxPath)
+	assert.NoError(err)
+	_, err = f.Write(yamlData)
+	assert.NoError(err)
+	f.Close()
+
+	// Add the file to the repository
+	worktree, err := gitMeta.Repository.Worktree()
+	assert.NoError(err)
+	_, err = worktree.Add(".ciux")
+	assert.NoError(err)
+
+	// Commit the changes to the repository
+	commit, err := worktree.Commit("Initial commit", &git.CommitOptions{})
+	assert.NoError(err)
+
+	// Create a new tag for the commit
+	_, err = gitMeta.Repository.CreateTag("v1.0.0", commit, &git.CreateTagOptions{
+		Tagger: &object.Signature{
+			Name:  "Test User",
+			Email: "test@example.com",
+			When:  time.Now(),
+		},
+		Message: "Test tag",
+	})
+	assert.NoError(err)
+
+	// Initialize the dependency repository
+	_, _, err = gitDepMeta.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
+	assert.NoError(err)
+
+	depGits, err := GetDepsBranches(root)
+	assert.NoError(err)
+
+	// Assert that the dependency has the correct branch information
+	assert.Equal("master", (*depGits)[0].Revision.Branch)
+
+	// Create testbranch in the main repository
+	branchName := "testbranch"
+	err = gitMeta.CreateBranch(branchName)
+	assert.NoError(err)
+
+	depGits, err = GetDepsBranches(root)
+	assert.NoError(err)
+	assert.Equal("master", (*depGits)[0].Revision.Branch)
+
+	// Create testbranch in the dependency repository
+	err = gitDepMeta.CreateBranch(branchName)
+	assert.NoError(err)
+
+	depGits, err = GetDepsBranches(root)
+	assert.NoError(err)
+	assert.Equal("testbranch", (*depGits)[0].Revision.Branch)
+
 }

@@ -67,6 +67,36 @@ func GitSemverTagMap(repo git.Repository) (*map[plumbing.Hash]*plumbing.Referenc
 	return &tagMap, nil
 }
 
+func GetDepsBranches(repositoryPath string) (*[]Git, error) {
+	gitMeta, err := GitOpen(repositoryPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to open git repository: %v", err)
+	}
+
+	err = gitMeta.Describe()
+	if err != nil {
+		return nil, fmt.Errorf("unable to describe git repository: %v", err)
+	}
+	Info("Version: %+v", gitMeta.Revision)
+	c := ReadConfig(repositoryPath)
+	dependencyGitList := []Git{}
+	for _, dep := range c.Dependencies {
+		depGit := Git{IsRemote: true, Url: dep.Url}
+		hasBranch, err := depGit.HasBranch(gitMeta.Revision.Branch)
+		if err != nil {
+			return nil, fmt.Errorf("unable to check branch existence for repository %s: %v", depGit.Url, err)
+		}
+		if hasBranch {
+			depGit.Revision.Branch = gitMeta.Revision.Branch
+		} else {
+			depGit.Revision.Branch = "master"
+		}
+		Info("Dependency -> hasBranch: %t", hasBranch)
+		dependencyGitList = append(dependencyGitList, depGit)
+	}
+	return &dependencyGitList, nil
+}
+
 // GitLsRemote returns branches and tag of a remote repository
 // https://github.com/go-git/go-git/blob/master/_examples/ls-remote/main.go
 func GitLsRemote(url string) (repo *Git, err error) {
@@ -95,6 +125,7 @@ func GitLsRemote(url string) (repo *Git, err error) {
 	// 2023/10/13 18:18:06 Tags found: v0.5^{}
 
 	for _, ref := range refs {
+		log.Debugf("Refs found: %s", ref.Name().Short())
 		if ref.Name().IsBranch() {
 			repo.Branches = append(repo.Branches, ref.Name().Short())
 		}
@@ -117,7 +148,7 @@ func (repo *Git) HasBranch(branchname string) (bool, error) {
 			PeelingOption: git.AppendPeeled,
 		})
 		if err != nil {
-			return false, fmt.Errorf("unable to list remote references: %v", err)
+			return false, fmt.Errorf("unable to list remote references: %+v", err)
 		}
 		for _, ref := range refs {
 			if ref.Name().IsBranch() {
@@ -234,6 +265,21 @@ func (repo *Git) getRoot() (string, error) {
 		return "", err
 	}
 	return worktree.Filesystem.Root(), nil
+}
+
+func (repo *Git) CreateBranch(branchName string) error {
+	worktree, err := repo.Repository.Worktree()
+	if err != nil {
+		return err
+	}
+
+	branch := fmt.Sprintf("refs/heads/%s", branchName)
+	b := plumbing.ReferenceName(branch)
+	err = worktree.Checkout(&git.CheckoutOptions{Create: true, Force: false, Branch: b})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (repo *Git) TaggedCommit(filename string, message string, tag string, annotatedTag bool, author object.Signature) (*plumbing.Hash, *plumbing.Reference, error) {

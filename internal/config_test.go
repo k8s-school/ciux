@@ -9,23 +9,15 @@ import (
 
 func TestReadConfig(t *testing.T) {
 	assert := assert.New(t)
-	ReadConfig("")
+	c := ReadConfig("")
 	assert.Equal("test-registry.io", viper.AllSettings()["registry"])
-}
-
-func TestGetConfig(t *testing.T) {
-	assert := assert.New(t)
-	ReadConfig("")
-	c := GetConfig()
-	t.Logf("Config: %+v", c)
 	assert.Equal("test-registry.io", c.Registry)
 
 	dep := Dependency{
-		Url:   "http://github.com/test",
+		Url:   "file:///tmp/ciux-dep-test",
 		Clone: true,
 		Pull:  true,
 	}
 
 	assert.Equal(dep, c.Dependencies[0])
-
 }
