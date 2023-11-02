@@ -67,11 +67,11 @@ func GitSemverTagMap(repo git.Repository) (*map[plumbing.Hash]*plumbing.Referenc
 	return &tagMap, nil
 }
 
-// GetDepsBranch returns a list of Git structures which contain
+// GetDepsWorkBranch returns a list of Git structures which contain
 // the work branch for each dependency in Git.Revision.Branch
 // It is the same branch as the main repository if it exists
 // or the default branch of the dependency repository otherwise
-func GetDepsBranch(repositoryPath string) (*[]Git, error) {
+func GetDepsWorkBranch(repositoryPath string) ([]Git, error) {
 	gitMeta, err := GitOpen(repositoryPath)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open git repository: %v", err)
@@ -99,7 +99,30 @@ func GetDepsBranch(repositoryPath string) (*[]Git, error) {
 		Info("Dependency -> hasBranch: %t", hasBranch)
 		dependencyGitList = append(dependencyGitList, depGit)
 	}
-	return &dependencyGitList, nil
+	return dependencyGitList, nil
+}
+
+func (gitObj *Git) CloneWorkBranch() error {
+	lastDir, err := lastDir(gitObj.Url)
+	if err != nil {
+		return fmt.Errorf("unable to get last directory from url %s: %v", gitObj.Url, err)
+	}
+	destDir, err := os.MkdirTemp(os.TempDir(), "ciux-"+lastDir+"-")
+	if err != nil {
+		return err
+	}
+	repository, err := git.PlainClone(destDir, false, &git.CloneOptions{
+		URL:           gitObj.Url,
+		ReferenceName: plumbing.ReferenceName(gitObj.Revision.Branch),
+		SingleBranch:  true,
+		Progress:      os.Stdout,
+	})
+	if err != nil {
+		return fmt.Errorf("unable to clone git repository %s: %v", gitObj.Url, err)
+	}
+	log.Debugf("Repository cloned to: %s, single branch: %s", destDir, gitObj.Revision.Branch)
+	gitObj.Repository = repository
+	return nil
 }
 
 // GitLsRemote returns branches and tag of a remote repository

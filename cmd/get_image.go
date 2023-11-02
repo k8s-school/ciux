@@ -4,6 +4,8 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"log"
+
 	"github.com/k8s-school/ciux/internal"
 	"github.com/spf13/cobra"
 )
@@ -21,7 +23,15 @@ to quickly create a Cobra application.`,
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		repositoryPath := args[0]
-		internal.GetDepsBranch(repositoryPath)
+		gitDeps, error := internal.GetDepsWorkBranch(repositoryPath)
+		if error != nil {
+			log.Fatal(error)
+		}
+		for _, gitDep := range gitDeps {
+			gitDep.CloneWorkBranch()
+			gitDep.Describe()
+			internal.Info("Revision: %+v", gitDep.Revision)
+		}
 	},
 }
 

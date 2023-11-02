@@ -2,8 +2,9 @@ package internal
 
 import (
 	"fmt"
-	"io"
+	"net/url"
 	"os"
+	"path"
 )
 
 func CheckIfError(err error) {
@@ -25,27 +26,11 @@ func Warning(format string, args ...interface{}) {
 	fmt.Printf("\x1b[36;1m%s\x1b[0m\n", fmt.Sprintf(format, args...))
 }
 
-func copy(src, dst string) (int64, error) {
-	sourceFileStat, err := os.Stat(src)
+// lastDir returns the last element of URL path
+func lastDir(permalink string) (string, error) {
+	url, err := url.Parse(permalink)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
-
-	if !sourceFileStat.Mode().IsRegular() {
-		return 0, fmt.Errorf("%s is not a regular file", src)
-	}
-
-	source, err := os.Open(src)
-	if err != nil {
-		return 0, err
-	}
-	defer source.Close()
-
-	destination, err := os.Create(dst)
-	if err != nil {
-		return 0, err
-	}
-	defer destination.Close()
-	nBytes, err := io.Copy(destination, source)
-	return nBytes, err
+	return path.Base(url.Path), nil
 }

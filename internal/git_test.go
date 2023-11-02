@@ -39,15 +39,12 @@ func gitDescribeTest(assert *assert.Assertions, gitMeta Git, expectedTagName str
 
 func initGitRepo(pattern string) (*Git, error) {
 
-	gitMeta := Git{}
-
-	dir := os.TempDir()
-
 	if len(pattern) == 0 {
 		pattern = "ciux-git-test-"
 	}
 
-	dir, err := os.MkdirTemp(dir, pattern)
+	gitMeta := Git{}
+	dir, err := os.MkdirTemp(os.TempDir(), pattern)
 	if err != nil {
 		return nil, err
 	}
@@ -290,27 +287,74 @@ func TestGetDepsBranches(t *testing.T) {
 	_, _, err = gitDepMeta.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
 	assert.NoError(err)
 
-	depGits, err := GetDepsBranch(root)
+	depGits, err := GetDepsWorkBranch(root)
 	assert.NoError(err)
 
 	// Assert that the dependency has the correct branch information
-	assert.Equal("master", (*depGits)[0].Revision.Branch)
+	assert.Equal("master", depGits[0].Revision.Branch)
 
 	// Create testbranch in the main repository
 	branchName := "testbranch"
 	err = gitMeta.CreateBranch(branchName)
 	assert.NoError(err)
 
-	depGits, err = GetDepsBranch(root)
+	depGits, err = GetDepsWorkBranch(root)
 	assert.NoError(err)
-	assert.Equal("master", (*depGits)[0].Revision.Branch)
+	assert.Equal("master", depGits[0].Revision.Branch)
 
 	// Create testbranch in the dependency repository
 	err = gitDepMeta.CreateBranch(branchName)
 	assert.NoError(err)
 
-	depGits, err = GetDepsBranch(root)
+	depGits, err = GetDepsWorkBranch(root)
 	assert.NoError(err)
-	assert.Equal("testbranch", (*depGits)[0].Revision.Branch)
+	assert.Equal("testbranch", depGits[0].Revision.Branch)
+
+}
+func TestCloneWorkBranch(t *testing.T) {
+	assert := assert.New(t)
+
+	// Test for local repository
+	gitMeta, err := initGitRepo("ciux-git-clonebranch-test-")
+	assert.NoError(err)
+	root, err := gitMeta.getRoot()
+	assert.NoError(err)
+	t.Logf("repo root: %s", root)
+	defer os.RemoveAll(root)
+	_, _, err = gitMeta.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
+	assert.NoError(err)
+
+	branchName := "testbranch"
+	err = gitMeta.CreateBranch(branchName)
+	assert.NoError(err)
+
+	commit2, _, err := gitMeta.TaggedCommit("second.txt", "second", "v2.0.0", true, author)
+	assert.NoError(err)
+
+	assert.True(gitMeta.HasBranch(branchName))
+	assert.False(gitMeta.HasBranch("notexist"))
+
+	// Create a new Git object with the URL and branch of the repository
+
+	gitObj := &Git{
+		Url:      "file://" + root,
+		Revision: GitRevision{Branch: branchName},
+	}
+
+	err = gitObj.CloneWorkBranch()
+	assert.NoError(err)
+	cloneRoot, err := gitObj.getRoot()
+	assert.NoError(err)
+	t.Logf("clone repo root: %s", root)
+	defer os.RemoveAll(cloneRoot)
+	assert.NoError(err)
+
+	// Check that the cloned repository has the correct branch checked out
+	cloneHead, err := gitObj.Repository.Head()
+	assert.NoError(err)
+	assert.Equal(branchName, cloneHead.Name().Short())
+
+	gitObj.Describe()
+	gitDescribeTest(assert, *gitMeta, "v2.0.0", 0, commit2.String(), false)
 
 }
