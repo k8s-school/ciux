@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestReadConfig(t *testing.T) {
+func TestNewConfig(t *testing.T) {
 	assert := assert.New(t)
-	c, err := ReadConfig("")
+	c, err := NewConfig("")
 	assert.NoError(err)
 	assert.Equal("test-registry.io", viper.AllSettings()["registry"])
 	assert.Equal("test-registry.io", c.Registry)

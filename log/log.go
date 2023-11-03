@@ -7,7 +7,6 @@ package log // import "github.com/go-daq/tdaq/log"
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"strings"
@@ -41,21 +40,16 @@ func (lvl Level) String() string {
 
 // MsgStream provides access to verbosity-defined formated messages, a la fmt.Printf.
 type MsgStream interface {
-	Debugf(format string, a ...interface{})
-	Infof(format string, a ...interface{})
-	Warnf(format string, a ...interface{})
-	Errorf(format string, a ...interface{})
-
-	Msg(lvl Level, format string, a ...interface{})
+	Printf(lvl Level, format string, a ...interface{})
 }
 
 type msgstream struct {
-	lvl Level
-	n   string
+	lvl    Level
+	prefix string
 }
 
 var (
-	Default = newMsgStream("ciux", LvlDebug)
+	msgStream = newMsgStream("ciux", LvlDebug)
 )
 
 func SetLogLevel(verbosity int) {
@@ -72,89 +66,57 @@ func SetLogLevel(verbosity int) {
 		lvl = LvlDebug
 	}
 
-	Default.lvl = lvl
+	msgStream.lvl = lvl
 }
 
 // Debugf displays a (formated) DBG message
 func Debugf(format string, a ...interface{}) {
-	Default.Debugf(format, a...)
+	msgStream.Printf(LvlDebug, format, a...)
 }
 
 // Infof displays a (formated) INFO message
 func Infof(format string, a ...interface{}) {
-	Default.Infof(format, a...)
+	msgStream.Printf(LvlInfo, format, a...)
 }
 
 // Warnf displays a (formated) WARN message
 func Warnf(format string, a ...interface{}) {
-	Default.Warnf(format, a...)
+	msgStream.Printf(LvlWarning, format, a...)
 }
 
 // Errorf displays a (formated) ERR message
 func Errorf(format string, a ...interface{}) {
-	Default.Errorf(format, a...)
+	msgStream.Printf(LvlError, format, a...)
 }
 
 // Fatalf displays a (formated) ERR message and stops the program.
 func Fatalf(format string, a ...interface{}) {
-	Default.Errorf(format, a...)
+	msgStream.Printf(LvlError, format, a...)
 	os.Exit(1)
 }
 
 // Panicf displays a (formated) ERR message and panics.
 func Panicf(format string, a ...interface{}) {
-	Default.Errorf(format, a...)
-	panic("tdaq panic")
-}
-
-// NewMsgStream creates a new MsgStream value with name name and minimum
-// verbosity level lvl.
-// This MsgStream will print messages into w.
-func NewMsgStream(name string, lvl Level, w io.Writer) MsgStream {
-	return newMsgStream(name, lvl)
+	msgStream.Printf(LvlError, format, a...)
+	panic("ciux panic")
 }
 
 func newMsgStream(name string, lvl Level) msgstream {
-
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	return msgstream{
-		lvl: lvl,
-		n:   fmt.Sprintf("%-20s ", name),
+		lvl:    lvl,
+		prefix: fmt.Sprintf("%-2s ", name),
 	}
-}
-
-// Debugf displays a (formated) DBG message
-func (msg msgstream) Debugf(format string, a ...interface{}) {
-	msg.Msg(LvlDebug, format, a...)
-}
-
-// Infof displays a (formated) INFO message
-func (msg msgstream) Infof(format string, a ...interface{}) {
-	msg.Msg(LvlInfo, format, a...)
-}
-
-// Warnf displays a (formated) WARN message
-func (msg msgstream) Warnf(format string, a ...interface{}) {
-	msg.Msg(LvlWarning, format, a...)
-}
-
-// Errorf displays a (formated) ERR message
-func (msg msgstream) Errorf(format string, a ...interface{}) {
-	msg.Msg(LvlError, format, a...)
 }
 
 // Msg displays a (formated) message with level lvl.
-func (msg msgstream) Msg(lvl Level, format string, a ...interface{}) {
+func (msg msgstream) Printf(lvl Level, format string, a ...interface{}) {
 	if lvl < msg.lvl {
 		return
 	}
-	eol := ""
+	format = msg.prefix + lvl.String() + " " + format
 	if !strings.HasSuffix(format, "\n") {
-		eol = "\n"
+		format += "\n"
 	}
-	format = msg.n + lvl.String() + " " + format + eol
 	log.Printf(format, a...)
 }
-
-var (
-	_ MsgStream = (*msgstream)(nil)
-)

@@ -11,10 +11,11 @@ import (
 	defaults "github.com/mcuadros/go-defaults"
 )
 
-// ReadConfig reads ciux config file
+// NewConfig reads ciux config file
 // it uses repositoryPath if not null or current directory
-func ReadConfig(repositoryPath string) (*Config, error) {
+func NewConfig(repositoryPath string) (Config, error) {
 	var configPath string
+	var config Config
 	var err error
 	if len(repositoryPath) == 0 {
 		configPath, err = os.Getwd()
@@ -29,17 +30,16 @@ func ReadConfig(repositoryPath string) (*Config, error) {
 
 	err = viper.ReadInConfig()
 	if err != nil {
-		return nil, err
+		return config, err
 	}
 	log.Debugf("Use config file: %s", viper.ConfigFileUsed())
 
-	c := new(Config)
-	defaults.SetDefaults(c)
-	err = mapstructure.Decode(viper.AllSettings(), c)
+	defaults.SetDefaults(config)
+	err = mapstructure.Decode(viper.AllSettings(), config)
 	if err != nil {
-		return nil, err
+		return config, err
 	}
-	return c, nil
+	return config, nil
 }
 
 type Dependency struct {

@@ -21,7 +21,7 @@ to quickly create a Cobra application.`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		repositoryPath := args[0]
-		gitMeta, err := internal.GitOpen(repositoryPath)
+		gitMeta, err := internal.NewGit(repositoryPath)
 		internal.FailOnError(err)
 		rev, err := gitMeta.GetRevision()
 		internal.FailOnError(err)

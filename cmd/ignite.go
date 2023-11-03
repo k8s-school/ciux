@@ -19,13 +19,19 @@ var igniteCmd = &cobra.Command{
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		repositoryPath := args[0]
-		gitDeps, err := internal.GetDepsWorkBranch(repositoryPath)
+		project := internal.NewProject(repositoryPath)
+		msg, err := internal.String(repositoryPath)
+		internal.FailOnError(err)
+		internal.Info(msg)
+
+		gitDeps, err := project.GetDepsWorkBranch()
 		internal.FailOnError(err)
 		for _, gitDep := range gitDeps {
-			gitDep.CloneWorkBranch()
+			singleBranch := true
+			gitDep.Clone(singleBranch)
 			rev, err := gitDep.GetRevision()
 			internal.FailOnError(err)
-			internal.Info("Revision: %+v", rev)
+			internal.Info("Dep repo: %s, version: %+v", gitDep.Url, rev.GetVersion())
 		}
 	},
 }

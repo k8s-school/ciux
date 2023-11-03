@@ -67,45 +67,33 @@ func GitSemverTagMap(repo git.Repository) (*map[plumbing.Hash]*plumbing.Referenc
 	return &tagMap, nil
 }
 
-// GetDepsWorkBranch returns a list of Git structures which contain
-// the work branch for each dependency in Git.Revision.Branch
-// It is the same branch as the main repository if it exists
-// or the default branch of the dependency repository otherwise
-func GetDepsWorkBranch(repositoryPath string) ([]Git, error) {
-	gitMain, err := GitOpen(repositoryPath)
+func String(repositoryPath string) (string, error) {
+	gitObj, err := NewGit(repositoryPath)
 	if err != nil {
-		return nil, fmt.Errorf("unable to open git repository: %v", err)
+		return "", fmt.Errorf("unable to open git repository: %v", err)
 	}
-
-	revMain, err := gitMain.GetRevision()
+	revMain, err := gitObj.GetRevision()
 	if err != nil {
-		return nil, fmt.Errorf("unable to describe git repository: %v", err)
+		return "", fmt.Errorf("unable to describe git repository: %v", err)
 	}
-	Info("Version: %+v", revMain)
-	ciuxCfg, err := ReadConfig(repositoryPath)
+	rootMain, err := gitObj.GetRoot()
 	if err != nil {
-		return nil, fmt.Errorf("unable to read ciux config: %v", err)
+		return "", fmt.Errorf("unable to get root of git repository: %v", err)
 	}
-	gitDeps := []Git{}
-	for _, dep := range ciuxCfg.Dependencies {
-		gitDep := Git{IsRemote: true, Url: dep.Url}
-		hasBranch, err := gitDep.HasBranch(revMain.Branch)
-		if err != nil {
-			return nil, fmt.Errorf("unable to check branch existence for repository %s: %v", gitDep.Url, err)
-		}
-		if hasBranch {
-			gitDep.WorkBranch = revMain.Branch
-		} else {
-			// TODO Retrieve the default branch in GitLsRemote()
-			gitDep.WorkBranch = "master"
-		}
-		Info("Dependency -> hasBranch: %t", hasBranch)
-		gitDeps = append(gitDeps, gitDep)
-	}
-	return gitDeps, nil
+	return fmt.Sprintf("repo: %s, version: %+v", rootMain, revMain.GetVersion()), nil
 }
 
-func (gitObj *Git) CloneWorkBranch() error {
+func (gitObj *Git) MainBranch() (string, error) {
+
+	remote, err := gitObj.Repository.Remote("origin")
+	if err != nil {
+		return "", fmt.Errorf("unable to get remote: %v", err)
+	}
+	fmt.Printf("XXXXXXXXXXXXXXx %+v", remote.Config().Fetch)
+	return "", nil
+}
+
+func (gitObj *Git) Clone(singleBranch bool) error {
 	lastDir, err := lastDir(gitObj.Url)
 	if err != nil {
 		return fmt.Errorf("unable to get last directory from url %s: %v", gitObj.Url, err)
@@ -114,10 +102,14 @@ func (gitObj *Git) CloneWorkBranch() error {
 	if err != nil {
 		return err
 	}
+	var refName plumbing.ReferenceName
+	if singleBranch {
+		refName = plumbing.ReferenceName(gitObj.WorkBranch)
+	}
 	repository, err := git.PlainClone(destDir, false, &git.CloneOptions{
 		URL:           gitObj.Url,
-		ReferenceName: plumbing.ReferenceName(gitObj.WorkBranch),
-		SingleBranch:  true,
+		ReferenceName: refName,
+		SingleBranch:  singleBranch,
 		Progress:      os.Stdout,
 	})
 	if err != nil {
@@ -156,7 +148,6 @@ func GitLsRemote(url string) (repo *Git, err error) {
 	// 2023/10/13 18:18:06 Tags found: v0.5^{}
 
 	for _, ref := range refs {
-		log.Debugf("Refs found: %s", ref.Name().Short())
 		if ref.Name().IsBranch() {
 			repo.Branches = append(repo.Branches, ref.Name().Short())
 		}
@@ -280,9 +271,9 @@ func (g *Git) GetRevision() (*GitRevision, error) {
 	return &rev, nil
 }
 
-// DescribeSemver returns the reference as 'git describe ' will do
+// GetVersion returns the reference as 'git describe ' will do
 // except that tag is the latest semver annotated tag
-func (rev *GitRevision) DescribeSemver() string {
+func (rev *GitRevision) GetVersion() string {
 	var dirty string
 	if rev.Dirty {
 		dirty = "-dirty"
@@ -295,17 +286,17 @@ func (rev *GitRevision) DescribeSemver() string {
 	return version
 }
 
-func GitOpen(dir string) (*Git, error) {
+func NewGit(dir string) (Git, error) {
 	repo := Git{}
 	r, err := git.PlainOpen(dir)
 	if err != nil {
-		return nil, fmt.Errorf("unable to open git repository: %v", err)
+		return repo, fmt.Errorf("unable to open git repository: %v", err)
 	}
 	repo.Repository = r
-	return &repo, nil
+	return repo, nil
 }
 
-func (repo *Git) getRoot() (string, error) {
+func (repo *Git) GetRoot() (string, error) {
 	worktree, err := repo.Repository.Worktree()
 	if err != nil {
 		return "", err
@@ -333,7 +324,7 @@ func (repo *Git) TaggedCommit(filename string, message string, tag string, annot
 	if err != nil {
 		return nil, nil, err
 	}
-	root, err := repo.getRoot()
+	root, err := repo.GetRoot()
 	if err != nil {
 		return nil, nil, err
 	}
