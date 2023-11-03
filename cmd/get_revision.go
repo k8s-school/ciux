@@ -8,8 +8,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var dependency string
-
 // revisionCmd represents the revision command
 var revisionCmd = &cobra.Command{
 	Use:   "revision (REPOSITORY) (DEPENDENCY_REPOSITORIES...)",
@@ -20,17 +18,14 @@ and usage of using your command. For example:
 Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
-	Args: cobra.MinimumNArgs(1),
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		repositoryPath := args[0]
-		dependencies := args[1:]
 		gitMeta, err := internal.GitOpen(repositoryPath)
-		internal.CheckIfError(err)
-		if len(dependencies) == 0 {
-			internal.Info("Version: %+v", gitMeta.Revision)
-			return
-		}
-
+		internal.FailOnError(err)
+		rev, err := gitMeta.GetRevision()
+		internal.FailOnError(err)
+		internal.Info("Revision: %+v", rev)
 	},
 }
 
@@ -44,7 +39,6 @@ func init() {
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	revisionCmd.Flags().StringVarP(&dependency, "dependency", "d", "", "Dependency repository")
 }
 
 // Create a golang function which returns the revision of a git repository

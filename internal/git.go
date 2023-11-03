@@ -15,7 +15,7 @@ import (
 )
 
 type GitRevision struct {
-	TagName  string
+	Tag      string
 	Counter  int
 	HeadHash string
 	Dirty    bool
@@ -27,7 +27,7 @@ type Git struct {
 	Branches   []string
 	Url        string
 	Repository *git.Repository
-	Revision   GitRevision
+	WorkBranch string
 	Author     string
 	IsRemote   bool
 }
@@ -72,34 +72,37 @@ func GitSemverTagMap(repo git.Repository) (*map[plumbing.Hash]*plumbing.Referenc
 // It is the same branch as the main repository if it exists
 // or the default branch of the dependency repository otherwise
 func GetDepsWorkBranch(repositoryPath string) ([]Git, error) {
-	gitMeta, err := GitOpen(repositoryPath)
+	gitMain, err := GitOpen(repositoryPath)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open git repository: %v", err)
 	}
 
-	err = gitMeta.Describe()
+	revMain, err := gitMain.GetRevision()
 	if err != nil {
 		return nil, fmt.Errorf("unable to describe git repository: %v", err)
 	}
-	Info("Version: %+v", gitMeta.Revision)
-	c := ReadConfig(repositoryPath)
-	dependencyGitList := []Git{}
-	for _, dep := range c.Dependencies {
-		depGit := Git{IsRemote: true, Url: dep.Url}
-		hasBranch, err := depGit.HasBranch(gitMeta.Revision.Branch)
+	Info("Version: %+v", revMain)
+	ciuxCfg, err := ReadConfig(repositoryPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read ciux config: %v", err)
+	}
+	gitDeps := []Git{}
+	for _, dep := range ciuxCfg.Dependencies {
+		gitDep := Git{IsRemote: true, Url: dep.Url}
+		hasBranch, err := gitDep.HasBranch(revMain.Branch)
 		if err != nil {
-			return nil, fmt.Errorf("unable to check branch existence for repository %s: %v", depGit.Url, err)
+			return nil, fmt.Errorf("unable to check branch existence for repository %s: %v", gitDep.Url, err)
 		}
 		if hasBranch {
-			depGit.Revision.Branch = gitMeta.Revision.Branch
+			gitDep.WorkBranch = revMain.Branch
 		} else {
 			// TODO Retrieve the default branch in GitLsRemote()
-			depGit.Revision.Branch = "master"
+			gitDep.WorkBranch = "master"
 		}
 		Info("Dependency -> hasBranch: %t", hasBranch)
-		dependencyGitList = append(dependencyGitList, depGit)
+		gitDeps = append(gitDeps, gitDep)
 	}
-	return dependencyGitList, nil
+	return gitDeps, nil
 }
 
 func (gitObj *Git) CloneWorkBranch() error {
@@ -113,14 +116,14 @@ func (gitObj *Git) CloneWorkBranch() error {
 	}
 	repository, err := git.PlainClone(destDir, false, &git.CloneOptions{
 		URL:           gitObj.Url,
-		ReferenceName: plumbing.ReferenceName(gitObj.Revision.Branch),
+		ReferenceName: plumbing.ReferenceName(gitObj.WorkBranch),
 		SingleBranch:  true,
 		Progress:      os.Stdout,
 	})
 	if err != nil {
 		return fmt.Errorf("unable to clone git repository %s: %v", gitObj.Url, err)
 	}
-	log.Debugf("Repository cloned to: %s, single branch: %s", destDir, gitObj.Revision.Branch)
+	log.Debugf("Repository cloned to: %s, single branch: %s", destDir, gitObj.WorkBranch)
 	gitObj.Repository = repository
 	return nil
 }
@@ -208,20 +211,20 @@ func (repo *Git) HasBranch(branchname string) (bool, error) {
 	return found, nil
 }
 
-// Describe the reference as 'git describe ' will do
-func (g *Git) Describe() error {
+// GetRevision the reference as 'git describe ' will do
+func (g *Git) GetRevision() (*GitRevision, error) {
 
 	head, err := g.Repository.Head()
 	if err != nil {
-		return fmt.Errorf("unable to find head: %v", err)
+		return nil, fmt.Errorf("unable to find head: %v", err)
 	}
 	w, err := g.Repository.Worktree()
 	if err != nil {
-		return fmt.Errorf("unable to find worktree: %v", err)
+		return nil, fmt.Errorf("unable to find worktree: %v", err)
 	}
 	status, err := w.Status()
 	if err != nil {
-		return fmt.Errorf("unable to find worktree status: %v", err)
+		return nil, fmt.Errorf("unable to find worktree status: %v", err)
 	}
 	branchName := head.Name().Short()
 	headHash := head.Hash().String()
@@ -238,13 +241,13 @@ func (g *Git) Describe() error {
 		Order: git.LogOrderCommitterTime,
 	})
 	if err != nil {
-		return fmt.Errorf("unable to get reference log: %v", err)
+		return nil, fmt.Errorf("unable to get reference log: %v", err)
 	}
 
-	// Build the semver tag map
+	// Build the semver annotated tag map
 	semverTags, err := GitSemverTagMap(*g.Repository)
 	if err != nil {
-		return fmt.Errorf("unable to get semver tags: %v", err)
+		return nil, fmt.Errorf("unable to get semver tags: %v", err)
 	}
 
 	// Search the latest semver tag
@@ -265,16 +268,31 @@ func (g *Git) Describe() error {
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("unable to loop on commits: %v", err)
+		return nil, fmt.Errorf("unable to loop on commits: %v", err)
 	}
-	g.Revision = GitRevision{
-		TagName:  tag.Name().Short(),
+	rev := GitRevision{
+		Tag:      tag.Name().Short(),
 		Counter:  count,
 		HeadHash: headHash,
 		Dirty:    dirty,
 		Branch:   branchName,
 	}
-	return nil
+	return &rev, nil
+}
+
+// DescribeSemver returns the reference as 'git describe ' will do
+// except that tag is the latest semver annotated tag
+func (rev *GitRevision) DescribeSemver() string {
+	var dirty string
+	if rev.Dirty {
+		dirty = "-dirty"
+	}
+	var counterHash string
+	if rev.Counter != 0 {
+		counterHash = fmt.Sprintf("-%d-g%s", rev.Counter, rev.HeadHash[0:7])
+	}
+	version := fmt.Sprintf("%s%s%s", rev.Tag, counterHash, dirty)
+	return version
 }
 
 func GitOpen(dir string) (*Git, error) {

@@ -9,7 +9,8 @@ import (
 
 func TestReadConfig(t *testing.T) {
 	assert := assert.New(t)
-	c := ReadConfig("")
+	c, err := ReadConfig("")
+	assert.NoError(err)
 	assert.Equal("test-registry.io", viper.AllSettings()["registry"])
 	assert.Equal("test-registry.io", c.Registry)
 

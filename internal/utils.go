@@ -7,7 +7,7 @@ import (
 	"path"
 )
 
-func CheckIfError(err error) {
+func FailOnError(err error) {
 	if err == nil {
 		return
 	}

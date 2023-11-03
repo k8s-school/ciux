@@ -28,10 +28,9 @@ func TestMain(m *testing.M) {
 }
 
 func gitDescribeTest(assert *assert.Assertions, gitMeta Git, expectedTagName string, expectedCounter int, expectedHeadHash string, expectedDirty bool) {
-	err := gitMeta.Describe()
-	revision := gitMeta.Revision
+	revision, err := gitMeta.GetRevision()
 	assert.NoError(err)
-	assert.Equal(expectedTagName, revision.TagName)
+	assert.Equal(expectedTagName, revision.Tag)
 	assert.Equal(expectedCounter, revision.Counter)
 	assert.Equal(expectedHeadHash, revision.HeadHash)
 	assert.Equal(expectedDirty, revision.Dirty)
@@ -287,28 +286,28 @@ func TestGetDepsBranches(t *testing.T) {
 	_, _, err = gitDepMeta.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
 	assert.NoError(err)
 
-	depGits, err := GetDepsWorkBranch(root)
+	gitDeps, err := GetDepsWorkBranch(root)
 	assert.NoError(err)
 
 	// Assert that the dependency has the correct branch information
-	assert.Equal("master", depGits[0].Revision.Branch)
+	assert.Equal("master", gitDeps[0].WorkBranch)
 
 	// Create testbranch in the main repository
 	branchName := "testbranch"
 	err = gitMeta.CreateBranch(branchName)
 	assert.NoError(err)
 
-	depGits, err = GetDepsWorkBranch(root)
+	gitDeps, err = GetDepsWorkBranch(root)
 	assert.NoError(err)
-	assert.Equal("master", depGits[0].Revision.Branch)
+	assert.Equal("master", gitDeps[0].WorkBranch)
 
 	// Create testbranch in the dependency repository
 	err = gitDepMeta.CreateBranch(branchName)
 	assert.NoError(err)
 
-	depGits, err = GetDepsWorkBranch(root)
+	gitDeps, err = GetDepsWorkBranch(root)
 	assert.NoError(err)
-	assert.Equal("testbranch", depGits[0].Revision.Branch)
+	assert.Equal("testbranch", gitDeps[0].WorkBranch)
 
 }
 func TestCloneWorkBranch(t *testing.T) {
@@ -337,8 +336,8 @@ func TestCloneWorkBranch(t *testing.T) {
 	// Create a new Git object with the URL and branch of the repository
 
 	gitObj := &Git{
-		Url:      "file://" + root,
-		Revision: GitRevision{Branch: branchName},
+		Url:        "file://" + root,
+		WorkBranch: branchName,
 	}
 
 	err = gitObj.CloneWorkBranch()
@@ -354,7 +353,55 @@ func TestCloneWorkBranch(t *testing.T) {
 	assert.NoError(err)
 	assert.Equal(branchName, cloneHead.Name().Short())
 
-	gitObj.Describe()
+	gitObj.GetRevision()
 	gitDescribeTest(assert, *gitMeta, "v2.0.0", 0, commit2.String(), false)
+
+}
+func TestGitRevisionDescribe(t *testing.T) {
+	assert := assert.New(t)
+	tests := []struct {
+		name     string
+		rev      GitRevision
+		expected string
+	}{
+		{
+			name: "simple",
+			rev: GitRevision{
+				Tag:      "v1.0.0",
+				Counter:  1,
+				HeadHash: "1234567890abcdef",
+				Dirty:    false,
+			},
+			expected: "v1.0.0-1-g1234567",
+		},
+		{
+			name: "dirty",
+			rev: GitRevision{
+				Tag:      "v1.0.0",
+				Counter:  1,
+				HeadHash: "1234567890abcdef",
+				Dirty:    true,
+			},
+			expected: "v1.0.0-1-g1234567-dirty",
+		},
+		{
+			name: "tag",
+			rev: GitRevision{
+				Tag:      "v1.0.0",
+				Counter:  0,
+				HeadHash: "1234567890abcdef",
+				Dirty:    false,
+			},
+			expected: "v1.0.0",
+		},
+	}
+
+	for _, tt := range tests {
+
+		t.Run(tt.name, func(t *testing.T) {
+			actual := tt.rev.DescribeSemver()
+			assert.Equal(tt.expected, actual)
+		})
+	}
 
 }
