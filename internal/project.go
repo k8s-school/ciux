@@ -37,7 +37,7 @@ func (project Project) GetDepsWorkBranch() (gitDeps []Git, err error) {
 		gitDep := Git{IsRemote: true, Url: dep.Url}
 		hasBranch, err := gitDep.HasBranch(revMain.Branch)
 		if err != nil {
-			return nil, fmt.Errorf("unable to check branch existence for repository %s: %v", gitDep.Url, err)
+			return nil, fmt.Errorf("unable to check branch existence for dependency repository %s: %v", gitDep.Url, err)
 		}
 		if hasBranch {
 			gitDep.WorkBranch = revMain.Branch
@@ -45,7 +45,7 @@ func (project Project) GetDepsWorkBranch() (gitDeps []Git, err error) {
 			// TODO Retrieve the default branch in GitLsRemote()
 			main, err := gitMain.MainBranch()
 			if err != nil {
-				return nil, fmt.Errorf("unable to get main branch for repository %s: %v", gitDep.Url, err)
+				return nil, fmt.Errorf("unable to get main branch for project repository %s: %v", gitMain.Url, err)
 			}
 			gitDep.WorkBranch = main
 		}

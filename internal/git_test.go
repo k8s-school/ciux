@@ -252,7 +252,7 @@ func TestCloneWorkBranch(t *testing.T) {
 	assert.Equal(branchName, cloneHead.Name().Short())
 
 	gitObj.GetRevision()
-	gitDescribeTest(assert, *gitMeta, "v2.0.0", 0, commit2.String(), false)
+	gitDescribeTest(assert, gitMeta, "v2.0.0", 0, commit2.String(), false)
 
 }
 func TestGetVersion(t *testing.T) {
@@ -307,19 +307,20 @@ func TestMainBranch(t *testing.T) {
 	assert := assert.New(t)
 
 	// Clone fink-broker repository
-	git, err := GitLsRemote("https://github.com/astrolabsoftware/fink-broker")
+	git := Git{
+		Url: "https://github.com/astrolabsoftware/fink-alert-simulator",
+	}
+	err := git.Clone(false)
 	assert.NoError(err)
 
-	git.Clone(false)
-
-	// Call the MainBranch function
 	mainBranch, err := git.MainBranch()
-	if err != nil {
-		t.Fatalf("MainBranch returned an error: %v", err)
-	}
+	assert.NoError(err)
+	assert.Equal("master", mainBranch)
 
-	// Check that the main branch is correct
-	if mainBranch != "refs/heads/main" {
-		t.Errorf("MainBranch returned %q, expected %q", mainBranch, "refs/heads/main")
-	}
+	gitLocal, err := initGitRepo("ciux-git-mainbranch-test-")
+	assert.NoError(err)
+	mainBranch, err = gitLocal.MainBranch()
+	assert.NoError(err)
+	assert.Equal("master", mainBranch)
+
 }

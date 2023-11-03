@@ -85,12 +85,17 @@ func String(repositoryPath string) (string, error) {
 
 func (gitObj *Git) MainBranch() (string, error) {
 
-	remote, err := gitObj.Repository.Remote("origin")
-	if err != nil {
-		return "", fmt.Errorf("unable to get remote: %v", err)
+	branch := "main"
+	mainNames := []string{"main", "master"}
+	for _, branch = range mainNames {
+		_, err := gitObj.Repository.Branch(branch)
+		if err == git.ErrBranchNotFound {
+			continue
+		} else if err != nil {
+			return "", fmt.Errorf("unable to get branch configuration: %v", err)
+		}
 	}
-	fmt.Printf("XXXXXXXXXXXXXXx %+v", remote.Config().Fetch)
-	return "", nil
+	return branch, nil
 }
 
 func (gitObj *Git) Clone(singleBranch bool) error {

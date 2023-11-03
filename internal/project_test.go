@@ -41,7 +41,9 @@ func TestGetDepsBranches(t *testing.T) {
 				Pull:  true,
 			},
 			{
-				Url: "/path/to/local/dep2",
+				Url:   "https://github.com/k8s-school/k8s-toolbox",
+				Clone: false,
+				Pull:  false,
 			},
 		},
 	}
@@ -116,83 +118,4 @@ func TestGetDepsBranches(t *testing.T) {
 	assert.NoError(err)
 	assert.Equal("testbranch", gitDeps[0].WorkBranch)
 
-}
-
-func TestGetDepsWorkBranch(t *testing.T) {
-	project := Project{
-		Git: Git{
-			IsRemote: false,
-			Url:      "/path/to/local/repo",
-		},
-		Config: Config{
-			Dependencies: []Dependency{
-				{
-					Url: "/path/to/local/dep1",
-				},
-				{
-					Url: "/path/to/local/dep2",
-				},
-			},
-		},
-	}
-
-	gitMock := Git{
-		IsRemote: false,
-		Url:      "/path/to/local/repo",
-	}
-
-	revMain := Revision{
-		Branch: "main",
-	}
-
-	gitDep1 := Git{
-		IsRemote: true,
-		Url:      "/path/to/local/dep1",
-	}
-
-	gitDep2 := Git{
-		IsRemote: true,
-		Url:      "/path/to/local/dep2",
-	}
-
-	// Mock GetRevision method
-	gitMock.GetRevisionFunc = func() (Revision, error) {
-		return revMain, nil
-	}
-
-	// Mock HasBranch method for dep1
-	gitDep1.HasBranchFunc = func(branch string) (bool, error) {
-		return branch == "main", nil
-	}
-
-	// Mock HasBranch method for dep2
-	gitDep2.HasBranchFunc = func(branch string) (bool, error) {
-		return branch == "main", nil
-	}
-
-	// Mock MainBranch method
-	gitMock.MainBranchFunc = func() (string, error) {
-		return "master", nil
-	}
-
-	project.Git = gitMock
-	project.Config.Dependencies[0].Git = gitDep1
-	project.Config.Dependencies[1].Git = gitDep2
-
-	expectedGitDeps := []Git{
-		{
-			IsRemote:   true,
-			Url:        "/path/to/local/dep1",
-			WorkBranch: "main",
-		},
-		{
-			IsRemote:   true,
-			Url:        "/path/to/local/dep2",
-			WorkBranch: "master",
-		},
-	}
-
-	gitDeps, err := project.GetDepsWorkBranch()
-	assert.NoError(t, err)
-	assert.Equal(t, expectedGitDeps, gitDeps)
 }

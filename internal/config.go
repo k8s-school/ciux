@@ -15,7 +15,7 @@ import (
 // it uses repositoryPath if not null or current directory
 func NewConfig(repositoryPath string) (Config, error) {
 	var configPath string
-	var config Config
+	config := new(Config)
 	var err error
 	if len(repositoryPath) == 0 {
 		configPath, err = os.Getwd()
@@ -30,16 +30,16 @@ func NewConfig(repositoryPath string) (Config, error) {
 
 	err = viper.ReadInConfig()
 	if err != nil {
-		return config, err
+		return *config, err
 	}
 	log.Debugf("Use config file: %s", viper.ConfigFileUsed())
 
 	defaults.SetDefaults(config)
 	err = mapstructure.Decode(viper.AllSettings(), config)
 	if err != nil {
-		return config, err
+		return *config, err
 	}
-	return config, nil
+	return *config, nil
 }
 
 type Dependency struct {
