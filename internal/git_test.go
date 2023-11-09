@@ -238,7 +238,7 @@ func TestCloneWorkBranch(t *testing.T) {
 		WorkBranch: branchName,
 	}
 
-	err = gitObj.Clone(true)
+	err = gitObj.Clone("", true)
 	assert.NoError(err)
 	cloneRoot, err := gitObj.GetRoot()
 	assert.NoError(err)
@@ -310,7 +310,7 @@ func TestMainBranch(t *testing.T) {
 	git := Git{
 		Url: "https://github.com/astrolabsoftware/fink-alert-simulator",
 	}
-	err := git.Clone(false)
+	err := git.Clone("", false)
 	assert.NoError(err)
 
 	mainBranch, err := git.MainBranch()

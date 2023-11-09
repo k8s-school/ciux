@@ -98,14 +98,31 @@ func (gitObj *Git) MainBranch() (string, error) {
 	return branch, nil
 }
 
-func (gitObj *Git) Clone(singleBranch bool) error {
-	lastDir, err := lastDir(gitObj.Url)
+func (gitObj *Git) GetName() (string, error) {
+	lastDir, err := LastDir(gitObj.Url)
 	if err != nil {
-		return fmt.Errorf("unable to get last directory from url %s: %v", gitObj.Url, err)
+		return "", err
 	}
-	destDir, err := os.MkdirTemp(os.TempDir(), "ciux-"+lastDir+"-")
+	return lastDir, nil
+}
+
+func (gitObj *Git) Clone(basePath string, singleBranch bool) error {
+	name, err := gitObj.GetName()
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to get name from url %s: %v", gitObj.Url, err)
+	}
+	var destDir string
+	if basePath == "" {
+		destDir, err = os.MkdirTemp(os.TempDir(), "ciux-"+name+"-")
+		if err != nil {
+			return err
+		}
+	} else {
+		destDir = filepath.Join(basePath, name)
+		err := os.MkdirAll(destDir, 0755)
+		if err != nil {
+			return err
+		}
 	}
 	var refName plumbing.ReferenceName
 	if singleBranch {

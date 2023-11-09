@@ -38,7 +38,7 @@ func TestLastDir(t *testing.T) {
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
-			actual, err := lastDir(tt.path)
+			actual, err := LastDir(tt.path)
 			assert.NoError(err)
 			assert.Equal(tt.expected, actual)
 		})

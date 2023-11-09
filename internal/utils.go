@@ -26,8 +26,8 @@ func Warning(format string, args ...interface{}) {
 	fmt.Printf("\x1b[36;1m%s\x1b[0m\n", fmt.Sprintf(format, args...))
 }
 
-// lastDir returns the last element of URL path
-func lastDir(permalink string) (string, error) {
+// LastDir returns the last element of URL path
+func LastDir(permalink string) (string, error) {
 	url, err := url.Parse(permalink)
 	if err != nil {
 		return "", err

@@ -16,7 +16,7 @@ func ListTags(src string) ([]string, error) {
 	return remote.List(repo)
 }
 
-func GetImage(r string) (v1.Image, name.Reference, error) {
+func DescImage(r string) (v1.Image, name.Reference, error) {
 	ref, err := name.ParseReference(r)
 	if err != nil {
 		return nil, nil, fmt.Errorf("parsing reference %q: %w", r, err)

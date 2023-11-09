@@ -17,19 +17,20 @@ func TestListTags(t *testing.T) {
 	t.Logf("Fink Tags: %+v", tags)
 }
 
-func TestGetImage(t *testing.T) {
+func TestDescImage(t *testing.T) {
 	assert := assert.New(t)
-	_, ref, err := GetImage("docker.io/library/alpine:3.18.3")
+	_, ref, err := DescImage("docker.io/library/alpine:3.18.3")
 	assert.NoError(err)
 	assert.Equal("index.docker.io/library/alpine:3.18.3", ref.Name())
 	t.Logf("Alpine ref %+v", ref)
 
-	_, ref, err = GetImage("gitlab-registry.in2p3.fr/astrolabsoftware/fink/fink-broker:2.7.1-104-g9cc0522")
+	finkBrokerUrl := "gitlab-registry.in2p3.fr/astrolabsoftware/fink/fink-broker"
+	_, ref, err = DescImage(finkBrokerUrl)
 	assert.NoError(err)
-	assert.Equal("gitlab-registry.in2p3.fr/astrolabsoftware/fink/fink-broker:2.7.1-104-g9cc0522", ref.Name())
+	assert.Equal(finkBrokerUrl, ref.Name())
 	t.Logf("Fink ref: %+v", ref)
 
-	_, ref, err = GetImage("gitlab-registry.in2p3.fr/astrolabsoftware/fink/fink-broker:notexist")
+	_, ref, err = DescImage("gitlab-registry.in2p3.fr/astrolabsoftware/fink/fink-broker:notexist")
 	assert.Error(err)
 	assert.Nil(ref)
 }

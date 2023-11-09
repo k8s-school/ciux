@@ -11,7 +11,7 @@ import (
 	defaults "github.com/mcuadros/go-defaults"
 )
 
-// NewConfig reads ciux config file
+// NewConfig reads ciux config file to buld a Config struct
 // it uses repositoryPath if not null or current directory
 func NewConfig(repositoryPath string) (Config, error) {
 	var configPath string
@@ -51,4 +51,10 @@ type Dependency struct {
 type Config struct {
 	Registry     string       `mapstructure:"registry" default:""`
 	Dependencies []Dependency `mapstructure:"dependencies"`
+}
+
+// WriteOutConfig writes out the shell configuration file
+// used be the CI/CD pipeline
+func (c *Config) WriteOutConfig() []Dependency {
+	return c.Dependencies
 }
