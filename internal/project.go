@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/k8s-school/ciux/log"
 )
 
@@ -30,13 +31,40 @@ func NewProject(repository_path string) Project {
 	return p
 }
 
-func (p *Project) CloneDeps(basePath string) {
+func (p *Project) SetDepsRepos(basePath string) error {
 	for i, depConfig := range p.Config.Dependencies {
 		if depConfig.Clone {
 			singleBranch := true
-			p.GitDeps[i].Clone(basePath, singleBranch)
+			err := p.GitDeps[i].Clone(basePath, singleBranch)
+			if err != nil {
+				return fmt.Errorf("unable to set git repository %s: %v", p.GitDeps[i].Url, err)
+			}
 		}
 	}
+	return nil
+}
+
+func (p *Project) CheckImages() ([]name.Reference, error) {
+	foundImages := []name.Reference{}
+	for _, gitDep := range p.GitDeps {
+		rev, err := gitDep.GetRevision()
+		if err != nil {
+			return foundImages, fmt.Errorf("unable to describe git repository: %v", err)
+		}
+		log.Debugf("Dep repo: %s, version: %+v", gitDep.Url, rev.GetVersion())
+		// TODO: Set image path at configuration time
+		depName, err := LastDir(gitDep.Url)
+		if err != nil {
+			return foundImages, fmt.Errorf("unable to get last directory of git repository: %v", err)
+		}
+		imageUrl := fmt.Sprintf("%s/%s:%s", p.Config.Registry, depName, rev.GetVersion())
+		_, ref, err := DescImage(imageUrl)
+		if err != nil {
+			return foundImages, fmt.Errorf("unable to check image existance: %v, %v", err, ref)
+		}
+		foundImages = append(foundImages, ref)
+	}
+	return foundImages, nil
 }
 
 // ScanRemoteDeps retrieves the work branch for each dependency

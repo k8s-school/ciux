@@ -67,6 +67,15 @@ func GitSemverTagMap(repo git.Repository) (*map[plumbing.Hash]*plumbing.Referenc
 	return &tagMap, nil
 }
 
+// FormatTags convert a map of tags to a map of human readable tags
+func FormatTags(tags *map[plumbing.Hash]*plumbing.Reference) map[string]string {
+	tagMap := map[string]string{}
+	for key, ref := range *tags {
+		tagMap[key.String()] = ref.Name().Short()
+	}
+	return tagMap
+}
+
 func String(repositoryPath string) (string, error) {
 	gitObj, err := NewGit(repositoryPath)
 	if err != nil {
@@ -135,15 +144,15 @@ func (gitObj *Git) Clone(basePath string, singleBranch bool) error {
 	if err != nil {
 		return fmt.Errorf("unable to get name from url %s: %v", gitObj.Url, err)
 	}
-	var destDir string
+	var repoDir string
 	if basePath == "" {
-		destDir, err = os.MkdirTemp(os.TempDir(), "ciux-"+name+"-")
+		repoDir, err = os.MkdirTemp(os.TempDir(), "ciux-"+name+"-")
 		if err != nil {
 			return err
 		}
 	} else {
-		destDir = filepath.Join(basePath, name)
-		err := os.MkdirAll(destDir, 0755)
+		repoDir = filepath.Join(basePath, name)
+		err := os.MkdirAll(repoDir, 0755)
 		if err != nil {
 			return err
 		}
@@ -152,16 +161,21 @@ func (gitObj *Git) Clone(basePath string, singleBranch bool) error {
 	if singleBranch {
 		refName = plumbing.ReferenceName(gitObj.WorkBranch)
 	}
-	repository, err := git.PlainClone(destDir, false, &git.CloneOptions{
+	repository, err := git.PlainClone(repoDir, false, &git.CloneOptions{
 		URL:           gitObj.Url,
 		ReferenceName: refName,
 		SingleBranch:  singleBranch,
 		Progress:      os.Stdout,
 	})
-	if err != nil {
+	if err == git.ErrRepositoryAlreadyExists {
+		log.Warnf("not cloning dependency repository %s, working with existing one: %s", gitObj.Url, repoDir)
+		repository, err = git.PlainOpen(repoDir)
+		if err != nil {
+			return fmt.Errorf("unable to open git repository %s: %v", gitObj.Url, err)
+		}
+	} else if err != nil {
 		return fmt.Errorf("unable to clone git repository %s: %v", gitObj.Url, err)
 	}
-	log.Debugf("Repository cloned to: %s, single branch: %s", destDir, gitObj.WorkBranch)
 	gitObj.Repository = repository
 	return nil
 }

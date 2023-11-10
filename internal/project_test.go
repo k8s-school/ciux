@@ -172,7 +172,7 @@ func TestWriteOutConfig(t *testing.T) {
 	project := NewProject(root)
 	tmpDir, err := os.MkdirTemp("", "ciux-writeoutconfig-test-projectdeps-")
 	assert.NoError(err)
-	project.CloneDeps(tmpDir)
+	project.SetDepsRepos(tmpDir)
 	err = project.WriteOutConfig()
 	assert.NoError(err)
 

@@ -24,18 +24,19 @@ func NewConfig(repositoryPath string) (Config, error) {
 		configPath = repositoryPath
 	}
 
-	viper.AddConfigPath(configPath)
-	viper.SetConfigType("yaml")
-	viper.SetConfigName(".ciux")
+	newviper := viper.New()
+	newviper.AddConfigPath(configPath)
+	newviper.SetConfigType("yaml")
+	newviper.SetConfigName(".ciux")
 
-	err = viper.ReadInConfig()
+	err = newviper.ReadInConfig()
 	if err != nil {
 		return *config, err
 	}
-	log.Debugf("Use config file: %s", viper.ConfigFileUsed())
+	log.Debugf("Use config file: %s", newviper.ConfigFileUsed())
 
 	defaults.SetDefaults(config)
-	err = mapstructure.Decode(viper.AllSettings(), config)
+	err = mapstructure.Decode(newviper.AllSettings(), config)
 	if err != nil {
 		return *config, err
 	}
@@ -51,10 +52,4 @@ type Dependency struct {
 type Config struct {
 	Registry     string       `mapstructure:"registry" default:""`
 	Dependencies []Dependency `mapstructure:"dependencies"`
-}
-
-// WriteOutConfig writes out the shell configuration file
-// used be the CI/CD pipeline
-func (c *Config) WriteOutConfig() []Dependency {
-	return c.Dependencies
 }
