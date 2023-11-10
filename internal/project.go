@@ -60,7 +60,7 @@ func (p *Project) CheckImages() ([]name.Reference, error) {
 		imageUrl := fmt.Sprintf("%s/%s:%s", p.Config.Registry, depName, rev.GetVersion())
 		_, ref, err := DescImage(imageUrl)
 		if err != nil {
-			return foundImages, fmt.Errorf("unable to check image existance: %v, %v", err, ref)
+			return foundImages, fmt.Errorf("unable to check image existence: %v, %v", err, ref)
 		}
 		foundImages = append(foundImages, ref)
 	}

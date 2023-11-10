@@ -266,6 +266,19 @@ func (gitObj *Git) HasBranch(branchname string) (bool, error) {
 	return found, nil
 }
 
+// IsDirty returns true if all the files are in Unmodified or Untracked status.
+func IsDirty(s git.Status) bool {
+	for _, status := range s {
+		if status.Worktree == git.Untracked {
+			continue
+		} else if status.Worktree != git.Unmodified || status.Staging != git.Unmodified {
+			return true
+		}
+	}
+
+	return false
+}
+
 // GetRevision the reference as 'git describe ' will do
 func (g *Git) GetRevision() (*GitRevision, error) {
 
@@ -283,12 +296,7 @@ func (g *Git) GetRevision() (*GitRevision, error) {
 	}
 	branchName := head.Name().Short()
 	headHash := head.Hash().String()
-	var dirty bool
-	if status.IsClean() {
-		dirty = false
-	} else {
-		dirty = true
-	}
+	dirty := IsDirty(status)
 
 	// Fetch the reference log
 	cIter, err := g.Repository.Log(&git.LogOptions{

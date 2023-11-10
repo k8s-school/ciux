@@ -3,6 +3,7 @@ package internal
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/go-git/go-git/v5"
@@ -352,4 +353,40 @@ func TestGetName(t *testing.T) {
 			require.Equal(tt.expected, actual)
 		})
 	}
+}
+func TestIsDirty(t *testing.T) {
+	require := require.New(t)
+
+	// Create a new Git repository
+	gitObj, err := initGitRepo("ciux-git-test-")
+	require.NoError(err)
+	root, err := gitObj.GetRoot()
+	require.NoError(err)
+	defer os.Remove(root)
+
+	worktree, err := gitObj.Repository.Worktree()
+	require.NoError(err)
+
+	// Check that the repository is not dirty
+	status, err := worktree.Status()
+	require.NoError(err)
+	require.False(IsDirty(status))
+
+	// Create a new untracked file and check that the repository is not dirty
+
+	fname := "new-file"
+	_, err = os.Create(filepath.Join(root, fname))
+	require.NoError(err)
+	require.NoError(err)
+	status, err = worktree.Status()
+	require.NoError(err)
+	require.False(IsDirty(status))
+
+	// Stage the file and check that the repository is dirty
+	_, err = worktree.Add("new-file")
+	require.NoError(err)
+	status, err = worktree.Status()
+	require.NoError(err)
+	require.True(IsDirty(status))
+
 }
