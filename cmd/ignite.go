@@ -27,9 +27,7 @@ var igniteCmd = &cobra.Command{
 
 		// Clone dependencies directories and checkout the correct revision
 		// Check container images exist
-		err := project.ScanRemoteDeps()
-		internal.FailOnError(err)
-		err = project.SetDepsRepos(depsDir)
+		err := project.SetDepsRepos(depsDir)
 		internal.FailOnError(err)
 		internal.Infof("%s", project.String())
 		images, err := project.CheckImages()
