@@ -24,7 +24,7 @@ var releaseCmd = &cobra.Command{
 		internal.FailOnError(err)
 		internal.Info(msg)
 
-		err = project.GetDepsWorkBranch()
+		err = project.ScanRemoteDeps()
 		internal.FailOnError(err)
 		for _, gitDep := range project.GitDeps {
 			singleBranch := true

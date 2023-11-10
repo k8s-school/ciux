@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 	"testing"
 	"time"
 
@@ -18,26 +17,26 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func createTestProject(pattern string) (Project, error) {
+func prepareTestRepos(pattern string) (Git, []Git, error) {
+
 	// Create a temporary directory for the project git repository
 	gitMeta, err := initGitRepo(pattern + "main-")
 	if err != nil {
-		return Project{}, err
+		return Git{}, []Git{}, err
 	}
 	root, err := gitMeta.GetRoot()
 	if err != nil {
-		return Project{}, err
+		return Git{}, []Git{}, err
 	}
 
 	// Create a custom .ciux file in the repository
 	gitDepMeta, err := initGitRepo(pattern + "dep-")
 	if err != nil {
-		return Project{}, err
+		return Git{}, []Git{}, err
 	}
 	depRoot, err := gitDepMeta.GetRoot()
-	defer os.RemoveAll(depRoot)
 	if err != nil {
-		return Project{}, err
+		return Git{}, []Git{}, err
 	}
 
 	// Write .ciux file in project directory
@@ -58,51 +57,50 @@ func createTestProject(pattern string) (Project, error) {
 	}
 
 	project := Project{
-		Git:    gitMeta,
 		Config: config,
 	}
 
 	items := map[string]interface{}{}
 	err = mapstructure.Decode(config, &items)
 	if err != nil {
-		return project, err
+		return Git{}, []Git{}, err
 	}
 	newviper := viper.New()
 	err = newviper.MergeConfigMap(items)
 	if err != nil {
-		return project, err
+		return Git{}, []Git{}, err
 	}
 
 	yamlData, err := yaml.Marshal(items)
 	if err != nil {
-		return project, err
+		return Git{}, []Git{}, err
 	}
 	log.Debugf("yamlData: %s", string(yamlData))
 	ciuxPath := filepath.Join(root, ".ciux")
 	f, err := os.Create(ciuxPath)
 	if err != nil {
-		return project, err
+		return Git{}, []Git{}, err
 	}
 	_, err = f.Write(yamlData)
 	if err != nil {
-		return project, err
+		return Git{}, []Git{}, err
 	}
 	f.Close()
 
 	// Add the file to the repository
 	worktree, err := gitMeta.Repository.Worktree()
 	if err != nil {
-		return project, err
+		return Git{}, []Git{}, err
 	}
 	_, err = worktree.Add(".ciux")
 	if err != nil {
-		return project, err
+		return Git{}, []Git{}, err
 	}
 
 	// Commit the changes to the repository
 	commit, err := worktree.Commit("Initial commit", &git.CommitOptions{})
 	if err != nil {
-		return project, err
+		return Git{}, []Git{}, err
 	}
 
 	// Create a new tag for the commit
@@ -115,48 +113,50 @@ func createTestProject(pattern string) (Project, error) {
 		Message: "Test tag",
 	})
 	if err != nil {
-		return project, err
+		return Git{}, []Git{}, err
 	}
 
 	// Initialize the dependency repository
 	_, _, err = gitDepMeta.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
 	if err != nil {
-		return project, err
+		return Git{}, []Git{}, err
 	}
-	return project, nil
+	project.Git = gitMeta
+	project.GitDeps = []Git{gitDepMeta}
+	return gitMeta, []Git{gitDepMeta}, nil
 }
 
-func TestGetDepsBranches(t *testing.T) {
+func TestScanRemoteDeps(t *testing.T) {
 	assert := assert.New(t)
 
-	project, err := createTestProject("ciux-getdepsbranches-test-")
-	root, err := project.Git.GetRoot()
+	localGit, remoteGitDeps, err := prepareTestRepos("ciux-scanremotedeps-test-")
+	assert.NoError(err)
+	root, err := localGit.GetRoot()
 	assert.NoError(err)
 	defer os.RemoveAll(root)
-	depRoot, err := project.GitDeps[0].GetRoot()
+	depRoot, err := remoteGitDeps[0].GetRoot()
 	assert.NoError(err)
 	defer os.RemoveAll(depRoot)
 
-	err = project.GetDepsWorkBranch()
-	assert.NoError(err)
+	project := NewProject(root)
 
 	// Assert that the dependency has the correct branch information
 	assert.Equal("master", project.GitDeps[0].WorkBranch)
 
 	// Create testbranch in the main repository
 	branchName := "testbranch"
-	err = project.Git.CreateBranch(branchName)
+	err = localGit.CreateBranch(branchName)
 	assert.NoError(err)
 
-	err = project.GetDepsWorkBranch()
+	err = project.ScanRemoteDeps()
 	assert.NoError(err)
 	assert.Equal("master", project.GitDeps[0].WorkBranch)
 
 	// Create testbranch in the dependency repository
-	err = project.GitDeps[0].CreateBranch(branchName)
+	err = remoteGitDeps[0].CreateBranch(branchName)
 	assert.NoError(err)
 
-	err = project.GetDepsWorkBranch()
+	err = project.ScanRemoteDeps()
 	assert.NoError(err)
 	assert.Equal("testbranch", project.GitDeps[0].WorkBranch)
 
@@ -164,43 +164,49 @@ func TestGetDepsBranches(t *testing.T) {
 func TestWriteOutConfig(t *testing.T) {
 	assert := assert.New(t)
 
-	project, err := createTestProject("ciux-writeoutconfig-test-")
-	root, err := project.Git.GetRoot()
+	localGit, _, err := prepareTestRepos("ciux-writeoutconfig-test-")
 	assert.NoError(err)
-	defer os.RemoveAll(root)
-	depRoot, err := project.GitDeps[0].GetRoot()
-	assert.NoError(err)
-	defer os.RemoveAll(depRoot)
-
-	err = project.GetDepsWorkBranch()
+	root, err := localGit.GetRoot()
 	assert.NoError(err)
 
+	project := NewProject(root)
+	tmpDir, err := os.MkdirTemp("", "ciux-writeoutconfig-test-projectdeps-")
+	assert.NoError(err)
+	project.CloneDeps(tmpDir)
 	err = project.WriteOutConfig()
 	assert.NoError(err)
 
 	// Assert that the .ciux.sh file was created
 	ciuxConfig := filepath.Join(root, "ciux.sh")
+	t.Logf("ciuxConfig: %s", ciuxConfig)
 	_, err = os.Stat(ciuxConfig)
 	assert.NoError(err)
 
 	// Assert that the file contains the expected environment variables
+	varName, err := project.GitDeps[0].GetEnVarName()
+	assert.NoError(err)
+	depRoot, err := project.GitDeps[0].GetRoot()
+	assert.NoError(err)
 	expectedVars := []string{
-		"TEST-REPO=" + root,
-		"TEST-REPO-DEPENDENCIES=" + depRoot,
+		"export " + varName + "=" + depRoot,
 	}
 	f, err := os.Open(ciuxConfig)
 	assert.NoError(err)
 	defer f.Close()
+
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		line := scanner.Text()
 		notFoundVars := expectedVars
 		for i, expectedVar := range expectedVars {
-			if strings.Contains(line, expectedVar) {
-				notFoundVars = slices.Delete(notFoundVars, i, i)
+			if line == expectedVar {
+				notFoundVars = slices.Delete(notFoundVars, i, i+1)
 			}
 		}
 		expectedVars = notFoundVars
 	}
 	assert.Empty(expectedVars)
+
+	// os.RemoveAll(root)
+	// os.RemoveAll(depRoot)
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
@@ -29,7 +30,6 @@ type Git struct {
 	Repository *git.Repository
 	WorkBranch string
 	Author     string
-	IsRemote   bool
 }
 
 // GitSemverTagMap ...
@@ -99,11 +99,35 @@ func (gitObj *Git) MainBranch() (string, error) {
 }
 
 func (gitObj *Git) GetName() (string, error) {
-	lastDir, err := LastDir(gitObj.Url)
-	if err != nil {
-		return "", err
+	var lastDir string
+	var err error
+	if len(gitObj.Url) != 0 {
+		var trimmedUrl string = strings.TrimRight(gitObj.Url, ".git")
+		lastDir, err = LastDir(trimmedUrl)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		root, err := gitObj.GetRoot()
+		if err != nil {
+			return "", err
+		}
+		lastDir, err = LastDir(root)
+		if err != nil {
+			return "", err
+		}
 	}
 	return lastDir, nil
+}
+
+func (gitObj *Git) GetEnVarName() (string, error) {
+	varName, err := gitObj.GetName()
+	if err != nil {
+		return varName, fmt.Errorf("unable to get name for git repository %v: %v", gitObj, err)
+	}
+	varName = strings.ReplaceAll(varName, "-", "_")
+	varName = strings.ToUpper(varName)
+	return varName, nil
 }
 
 func (gitObj *Git) Clone(basePath string, singleBranch bool) error {
@@ -145,7 +169,7 @@ func (gitObj *Git) Clone(basePath string, singleBranch bool) error {
 // GitLsRemote returns branches and tag of a remote repository
 // https://github.com/go-git/go-git/blob/master/_examples/ls-remote/main.go
 func GitLsRemote(url string) (repo *Git, err error) {
-	repo = &Git{IsRemote: true, Url: url}
+	repo = &Git{Url: url}
 
 	remote := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
 		Name: "origin",
@@ -180,12 +204,16 @@ func GitLsRemote(url string) (repo *Git, err error) {
 	return repo, nil
 }
 
-func (repo *Git) HasBranch(branchname string) (bool, error) {
+func (gitObj *Git) isRemote() bool {
+	return gitObj.Repository == nil
+}
+
+func (gitObj *Git) HasBranch(branchname string) (bool, error) {
 	found := false
-	if repo.IsRemote {
+	if gitObj.isRemote() {
 		remote := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
 			Name: "origin",
-			URLs: []string{repo.Url},
+			URLs: []string{gitObj.Url},
 		})
 		refs, err := remote.List(&git.ListOptions{
 			// Returns all references, including peeled references.
@@ -203,7 +231,7 @@ func (repo *Git) HasBranch(branchname string) (bool, error) {
 			}
 		}
 	} else {
-		bIter, err := repo.Repository.Branches()
+		bIter, err := gitObj.Repository.Branches()
 		if err != nil {
 			return false, fmt.Errorf("unable to get branches: %v", err)
 		}
@@ -318,8 +346,11 @@ func NewGit(dir string) (Git, error) {
 	return repo, nil
 }
 
-func (repo *Git) GetRoot() (string, error) {
-	worktree, err := repo.Repository.Worktree()
+func (git *Git) GetRoot() (string, error) {
+	if git.Repository == nil {
+		return "", fmt.Errorf("repository is nil for git %+v", git)
+	}
+	worktree, err := git.Repository.Worktree()
 	if err != nil {
 		return "", err
 	}

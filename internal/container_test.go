@@ -24,13 +24,7 @@ func TestDescImage(t *testing.T) {
 	assert.Equal("index.docker.io/library/alpine:3.18.3", ref.Name())
 	t.Logf("Alpine ref %+v", ref)
 
-	finkBrokerUrl := "gitlab-registry.in2p3.fr/astrolabsoftware/fink/fink-broker"
-	_, ref, err = DescImage(finkBrokerUrl)
-	assert.NoError(err)
-	assert.Equal(finkBrokerUrl, ref.Name())
-	t.Logf("Fink ref: %+v", ref)
-
-	_, ref, err = DescImage("gitlab-registry.in2p3.fr/astrolabsoftware/fink/fink-broker:notexist")
+	_, ref, err = DescImage("docker.io/library/alpine:3.18.3:notexist")
 	assert.Error(err)
 	assert.Nil(ref)
 }

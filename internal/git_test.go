@@ -45,7 +45,6 @@ func initGitRepo(pattern string) (Git, error) {
 
 	return gitObj, nil
 }
-
 func TestGitSemverTagMap(t *testing.T) {
 	assert := assert.New(t)
 	repo, err := initGitRepo("ciux-git-semver-test-")
@@ -323,4 +322,35 @@ func TestMainBranch(t *testing.T) {
 	assert.NoError(err)
 	assert.Equal("master", mainBranch)
 
+}
+func TestGetName(t *testing.T) {
+	assert := assert.New(t)
+
+	tests := []struct {
+		name     string
+		url      string
+		expected string
+	}{
+		{
+			name:     "simple",
+			url:      "https://github.com/astrolabsoftware/fink-alert-simulator",
+			expected: "fink-alert-simulator",
+		},
+		{
+			name:     "with-suffix",
+			url:      "https://github.com/astrolabsoftware/fink-alert-simulator.git",
+			expected: "fink-alert-simulator",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gitObj := &Git{
+				Url: tt.url,
+			}
+			actual, err := gitObj.GetName()
+			assert.NoError(err)
+			assert.Equal(tt.expected, actual)
+		})
+	}
 }

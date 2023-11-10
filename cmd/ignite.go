@@ -31,7 +31,7 @@ var igniteCmd = &cobra.Command{
 
 		// Clone dependencies directories and checkout the correct revision
 		// Check container images exist
-		err = project.GetDepsWorkBranch()
+		err = project.ScanRemoteDeps()
 		internal.FailOnError(err)
 		for _, gitDep := range project.GitDeps {
 			singleBranch := true
@@ -46,8 +46,9 @@ var igniteCmd = &cobra.Command{
 			_, ref, err := internal.DescImage(imageUrl)
 			internal.FailOnError(err)
 			internal.Info("Image ref: %s", ref)
-
 		}
+		err = project.WriteOutConfig()
+		internal.FailOnError(err)
 	},
 }
 
