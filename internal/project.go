@@ -31,6 +31,36 @@ func NewProject(repository_path string) Project {
 	return p
 }
 
+func (p *Project) String() string {
+
+	name, err := p.Git.GetName()
+	if err != nil {
+		return fmt.Sprintf("unable to get project name: %v", err)
+	}
+	revMain, err := p.Git.GetRevision()
+	if err != nil {
+		return fmt.Sprintf("unable to describe project repository: %v", err)
+	}
+	rootMain, err := p.Git.GetRoot()
+	if err != nil {
+		return fmt.Sprintf("unable to get root of project repository: %v", err)
+	}
+	msg := fmt.Sprintf("Project %s\n  %s %+s\n", name, rootMain, revMain.GetVersion())
+	msg += "Dependencies:"
+	for _, dep := range p.GitDeps {
+		revDep, err := dep.GetRevision()
+		if err != nil {
+			return msg + fmt.Sprintf("unable to describe git repository: %v", err)
+		}
+		rootDep, err := dep.GetRoot()
+		if err != nil {
+			return msg + fmt.Sprintf("unable to get root of git repository: %v", err)
+		}
+		msg += fmt.Sprintf("\n  %s %s", rootDep, revDep.GetVersion())
+	}
+	return msg
+}
+
 func (p *Project) SetDepsRepos(basePath string) error {
 	for i, depConfig := range p.Config.Dependencies {
 		if depConfig.Clone {

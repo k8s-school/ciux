@@ -22,21 +22,19 @@ var igniteCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		repositoryPath := args[0]
 		project := internal.NewProject(repositoryPath)
-		msg, err := internal.String(repositoryPath)
-		internal.FailOnError(err)
-		internal.Info(msg)
 
 		depsDir := filepath.Dir(repositoryPath)
 
 		// Clone dependencies directories and checkout the correct revision
 		// Check container images exist
-		err = project.ScanRemoteDeps()
+		err := project.ScanRemoteDeps()
 		internal.FailOnError(err)
 		err = project.SetDepsRepos(depsDir)
 		internal.FailOnError(err)
+		internal.Infof("%s", project.String())
 		images, err := project.CheckImages()
 		internal.FailOnError(err)
-		internal.Info("Images: %v", images)
+		internal.Infof("Images: %v", images)
 		err = project.WriteOutConfig()
 		internal.FailOnError(err)
 	},

@@ -25,7 +25,7 @@ to quickly create a Cobra application.`,
 		internal.FailOnError(err)
 		rev, err := gitMeta.GetRevision()
 		internal.FailOnError(err)
-		internal.Info("Revision: %+v", rev)
+		internal.Infof("Revision: %+v", rev)
 	},
 }
 

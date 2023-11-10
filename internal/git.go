@@ -76,22 +76,6 @@ func FormatTags(tags *map[plumbing.Hash]*plumbing.Reference) map[string]string {
 	return tagMap
 }
 
-func String(repositoryPath string) (string, error) {
-	gitObj, err := NewGit(repositoryPath)
-	if err != nil {
-		return "", fmt.Errorf("unable to open git repository: %v", err)
-	}
-	revMain, err := gitObj.GetRevision()
-	if err != nil {
-		return "", fmt.Errorf("unable to describe git repository: %v", err)
-	}
-	rootMain, err := gitObj.GetRoot()
-	if err != nil {
-		return "", fmt.Errorf("unable to get root of git repository: %v", err)
-	}
-	return fmt.Sprintf("repo: %s, version: %+v", rootMain, revMain.GetVersion()), nil
-}
-
 func (gitObj *Git) MainBranch() (string, error) {
 
 	branch := "main"
