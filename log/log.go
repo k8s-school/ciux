@@ -69,6 +69,10 @@ func SetLogLevel(verbosity int) {
 	msgStream.lvl = lvl
 }
 
+func GetLevel() Level {
+	return msgStream.lvl
+}
+
 // Debugf displays a (formated) DBG message
 func Debugf(format string, a ...interface{}) {
 	msgStream.Printf(LvlDebug, format, a...)

@@ -65,7 +65,7 @@ func (p *Project) SetDepsRepos(basePath string) error {
 	for i, depConfig := range p.Config.Dependencies {
 		if depConfig.Clone {
 			singleBranch := true
-			err := p.GitDeps[i].Clone(basePath, singleBranch)
+			err := p.GitDeps[i].CloneOrOpen(basePath, singleBranch)
 			if err != nil {
 				return fmt.Errorf("unable to set git repository %s: %v", p.GitDeps[i].Url, err)
 			}

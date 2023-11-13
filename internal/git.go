@@ -137,7 +137,7 @@ func (gitObj *Git) GetEnVarName() (string, error) {
 	return varName, nil
 }
 
-func (gitObj *Git) Clone(basePath string, singleBranch bool) error {
+func (gitObj *Git) CloneOrOpen(basePath string, singleBranch bool) error {
 	name, err := gitObj.GetName()
 	if err != nil {
 		return fmt.Errorf("unable to get name from url %s: %v", gitObj.Url, err)
@@ -159,11 +159,15 @@ func (gitObj *Git) Clone(basePath string, singleBranch bool) error {
 	if singleBranch {
 		refName = plumbing.ReferenceName(gitObj.WorkBranch)
 	}
+	var progress *os.File
+	if log.GetLevel() >= log.LvlDebug {
+		progress = os.Stdout
+	}
 	repository, err := git.PlainClone(repoDir, false, &git.CloneOptions{
 		URL:           gitObj.Url,
 		ReferenceName: refName,
 		SingleBranch:  singleBranch,
-		Progress:      os.Stdout,
+		Progress:      progress,
 	})
 	if err == git.ErrRepositoryAlreadyExists {
 		log.Warnf("not cloning dependency repository %s, working with existing one: %s", gitObj.Url, repoDir)

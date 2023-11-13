@@ -26,7 +26,7 @@ var releaseCmd = &cobra.Command{
 		internal.FailOnError(err)
 		for _, gitDep := range project.GitDeps {
 			singleBranch := true
-			gitDep.Clone("", singleBranch)
+			gitDep.CloneOrOpen("", singleBranch)
 			rev, err := gitDep.GetRevision()
 			internal.FailOnError(err)
 			internal.Infof("Dep repo: %s, version: %+v", gitDep.Url, rev.GetVersion())

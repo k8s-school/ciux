@@ -239,7 +239,7 @@ func TestCloneWorkBranch(t *testing.T) {
 		WorkBranch: branchName,
 	}
 
-	err = gitObj.Clone("", true)
+	err = gitObj.CloneOrOpen("", true)
 	require.NoError(err)
 	cloneRoot, err := gitObj.GetRoot()
 	require.NoError(err)
@@ -341,7 +341,7 @@ func TestMainBranch(t *testing.T) {
 			Url: tt.url,
 		}
 		if tt.clone {
-			err := gitObj.Clone("", false)
+			err := gitObj.CloneOrOpen("", false)
 			require.NoError(err)
 		}
 		mainBranch, err = gitObj.MainBranch()
