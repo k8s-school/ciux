@@ -29,12 +29,12 @@ var igniteCmd = &cobra.Command{
 		// Check container images exist
 		err := project.SetDepsRepos(depsDir)
 		internal.FailOnError(err)
+		err = project.WriteOutConfig()
+		internal.FailOnError(err)
 		internal.Infof("%s", project.String())
 		images, err := project.CheckImages()
 		internal.FailOnError(err)
 		internal.Infof("Images: %v", images)
-		err = project.WriteOutConfig()
-		internal.FailOnError(err)
 	},
 }
 
