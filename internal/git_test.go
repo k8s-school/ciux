@@ -194,6 +194,8 @@ func TestHasBranch(t *testing.T) {
 	worktree, err := repo.Worktree()
 	require.NoError(err)
 
+	require.True(gitMeta.HasBranch("master"))
+
 	branchName := "testbranch"
 	err = gitMeta.CreateBranch(branchName)
 	require.NoError(err)
@@ -305,22 +307,47 @@ func TestGetVersion(t *testing.T) {
 func TestMainBranch(t *testing.T) {
 	require := require.New(t)
 
-	// Clone fink-broker repository
-	git := Git{
-		Url: "https://github.com/astrolabsoftware/fink-alert-simulator",
-	}
-	err := git.Clone("", false)
-	require.NoError(err)
-
-	mainBranch, err := git.MainBranch()
-	require.NoError(err)
-	require.Equal("master", mainBranch)
-
+	var mainBranch string
 	gitLocal, err := initGitRepo("ciux-git-mainbranch-test-")
+	require.NoError(err)
+	_, _, err = gitLocal.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
 	require.NoError(err)
 	mainBranch, err = gitLocal.MainBranch()
 	require.NoError(err)
 	require.Equal("master", mainBranch)
+
+	tests := []struct {
+		name     string
+		url      string
+		clone    bool
+		expected string
+	}{
+		{
+			name:     "master",
+			url:      "https://github.com/astrolabsoftware/fink-alert-simulator",
+			clone:    true,
+			expected: "master",
+		},
+		{
+			name:     "main",
+			url:      "https://github.com/astrolabsoftware/finkctl",
+			clone:    false,
+			expected: "main",
+		},
+	}
+
+	for _, tt := range tests {
+		gitObj := &Git{
+			Url: tt.url,
+		}
+		if tt.clone {
+			err := gitObj.Clone("", false)
+			require.NoError(err)
+		}
+		mainBranch, err = gitObj.MainBranch()
+		require.NoError(err)
+		require.Equal(tt.expected, mainBranch)
+	}
 
 }
 func TestGetName(t *testing.T) {
@@ -344,14 +371,12 @@ func TestGetName(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gitObj := &Git{
-				Url: tt.url,
-			}
-			actual, err := gitObj.GetName()
-			require.NoError(err)
-			require.Equal(tt.expected, actual)
-		})
+		gitObj := &Git{
+			Url: tt.url,
+		}
+		actual, err := gitObj.GetName()
+		require.NoError(err)
+		require.Equal(tt.expected, actual)
 	}
 }
 func TestIsDirty(t *testing.T) {

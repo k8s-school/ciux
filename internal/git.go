@@ -78,17 +78,31 @@ func FormatTags(tags *map[plumbing.Hash]*plumbing.Reference) map[string]string {
 
 func (gitObj *Git) MainBranch() (string, error) {
 
-	branch := "main"
+	mainBranch := ""
+	found := false
 	mainNames := []string{"main", "master"}
-	for _, branch = range mainNames {
-		_, err := gitObj.Repository.Branch(branch)
-		if err == git.ErrBranchNotFound {
-			continue
-		} else if err != nil {
-			return "", fmt.Errorf("unable to get branch configuration: %v", err)
+
+	name, err := gitObj.GetName()
+	if err != nil {
+		return "", fmt.Errorf("unable to get name for git repository %s: %v", gitObj.Url, err)
+	}
+
+	for _, branch := range mainNames {
+
+		found, err = gitObj.HasBranch(branch)
+		if err != nil {
+			return "", fmt.Errorf("unable to look for main branch: %v", err)
+		}
+		if found {
+			mainBranch = branch
+			break
 		}
 	}
-	return branch, nil
+
+	if !found {
+		return "", fmt.Errorf("unable to find main branch for git repository %s", name)
+	}
+	return mainBranch, nil
 }
 
 func (gitObj *Git) GetName() (string, error) {

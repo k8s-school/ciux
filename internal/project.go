@@ -76,23 +76,26 @@ func (p *Project) SetDepsRepos(basePath string) error {
 
 func (p *Project) CheckImages() ([]name.Reference, error) {
 	foundImages := []name.Reference{}
-	for _, gitDep := range p.GitDeps {
-		rev, err := gitDep.GetRevision()
-		if err != nil {
-			return foundImages, fmt.Errorf("unable to describe git repository: %v", err)
+	for i, depConfig := range p.Config.Dependencies {
+		if depConfig.Pull {
+			gitDep := p.GitDeps[i]
+			rev, err := gitDep.GetRevision()
+			if err != nil {
+				return foundImages, fmt.Errorf("unable to describe git repository: %v", err)
+			}
+			log.Debugf("Dep repo: %s, version: %+v", gitDep.Url, rev.GetVersion())
+			// TODO: Set image path at configuration time
+			depName, err := LastDir(gitDep.Url)
+			if err != nil {
+				return foundImages, fmt.Errorf("unable to get last directory of git repository: %v", err)
+			}
+			imageUrl := fmt.Sprintf("%s/%s:%s", p.Config.Registry, depName, rev.GetVersion())
+			_, ref, err := DescImage(imageUrl)
+			if err != nil {
+				return foundImages, fmt.Errorf("unable to check image existence: %v, %v", err, ref)
+			}
+			foundImages = append(foundImages, ref)
 		}
-		log.Debugf("Dep repo: %s, version: %+v", gitDep.Url, rev.GetVersion())
-		// TODO: Set image path at configuration time
-		depName, err := LastDir(gitDep.Url)
-		if err != nil {
-			return foundImages, fmt.Errorf("unable to get last directory of git repository: %v", err)
-		}
-		imageUrl := fmt.Sprintf("%s/%s:%s", p.Config.Registry, depName, rev.GetVersion())
-		_, ref, err := DescImage(imageUrl)
-		if err != nil {
-			return foundImages, fmt.Errorf("unable to check image existence: %v, %v", err, ref)
-		}
-		foundImages = append(foundImages, ref)
 	}
 	return foundImages, nil
 }
@@ -116,8 +119,7 @@ func (project *Project) ScanRemoteDeps() (err error) {
 		if hasBranch {
 			gitDep.WorkBranch = revMain.Branch
 		} else {
-			// TODO Retrieve the default branch in GitLsRemote()
-			main, err := gitMain.MainBranch()
+			main, err := gitDep.MainBranch()
 			if err != nil {
 				return fmt.Errorf("unable to get main branch for project repository %s: %v", gitMain.Url, err)
 			}
@@ -134,26 +136,35 @@ func (project *Project) ScanRemoteDeps() (err error) {
 // WriteOutConfig writes out the shell configuration file
 // used be the CI/CD pipeline
 func (p *Project) WriteOutConfig() error {
-	root, err := p.Git.GetRoot()
-	if err != nil {
-		return fmt.Errorf("unable to get root of git repository: %v", err)
-	}
 
-	ciuxConfig := filepath.Join(root, "ciux.sh")
-	f, err := os.Create(ciuxConfig)
+	var ciuxConfigFile = os.Getenv("CIUXCONFIG")
+	if len(ciuxConfigFile) == 0 {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("unable to get user home directory: %v", err)
+		}
+		ciuxCfgDir := filepath.Join(home, ".ciux")
+		os.MkdirAll(ciuxCfgDir, 0755)
+		if err != nil {
+			return fmt.Errorf("unable to create directory %s: %v", ciuxCfgDir, err)
+		}
+		ciuxConfigFile = filepath.Join(ciuxCfgDir, "ciux.sh")
+	}
+	f, err := os.Create(ciuxConfigFile)
 	if err != nil {
-		return fmt.Errorf("unable to create file %s: %v", ciuxConfig, err)
+		return fmt.Errorf("unable to create configuration file %s: %v", ciuxConfigFile, err)
 	}
 	defer f.Close()
 
-	for _, dep := range p.GitDeps {
-		if !dep.isRemote() {
-			varName, err := dep.GetEnVarName()
+	gitRepos := append(p.GitDeps, p.Git)
+	for _, gitObj := range gitRepos {
+		if !gitObj.isRemote() {
+			varName, err := gitObj.GetEnVarName()
 			if err != nil {
-				return fmt.Errorf("unable to get environment variable name for git repository %v: %v", dep, err)
+				return fmt.Errorf("unable to get environment variable name for git repository %v: %v", gitObj, err)
 			}
 
-			root, err := dep.GetRoot()
+			root, err := gitObj.GetRoot()
 			if err != nil {
 				return fmt.Errorf("unable to get root of git repository: %v", err)
 			}
@@ -161,8 +172,19 @@ func (p *Project) WriteOutConfig() error {
 			depEnv := fmt.Sprintf("export %s=%s\n", varName, root)
 			_, err = f.WriteString(depEnv)
 			if err != nil {
-				return fmt.Errorf("unable to write variable %s to file %s: %v", varName, ciuxConfig, err)
+				return fmt.Errorf("unable to write variable %s to file %s: %v", varName, ciuxConfigFile, err)
 			}
+
+			rev, err := gitObj.GetRevision()
+			if err != nil {
+				return fmt.Errorf("unable to describe git repository: %v", err)
+			}
+			depVersion := fmt.Sprintf("export %s_VERSION=%s\n", varName, rev.GetVersion())
+			_, err = f.WriteString(depVersion)
+			if err != nil {
+				return fmt.Errorf("unable to write variable %s_VERSION to file %s: %v", varName, ciuxConfigFile, err)
+			}
+
 		}
 	}
 	return nil
