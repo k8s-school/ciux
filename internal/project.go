@@ -169,7 +169,7 @@ func (p *Project) WriteOutConfig() error {
 				return fmt.Errorf("unable to get root of git repository: %v", err)
 			}
 
-			depEnv := fmt.Sprintf("export %s=%s\n", varName, root)
+			depEnv := fmt.Sprintf("export %s_DIR=%s\n", varName, root)
 			_, err = f.WriteString(depEnv)
 			if err != nil {
 				return fmt.Errorf("unable to write variable %s to file %s: %v", varName, ciuxConfigFile, err)
