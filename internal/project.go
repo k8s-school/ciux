@@ -2,11 +2,11 @@ package internal
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/k8s-school/ciux/log"
 )
 
 type Project struct {
@@ -83,7 +83,7 @@ func (p *Project) CheckImages() ([]name.Reference, error) {
 			if err != nil {
 				return foundImages, fmt.Errorf("unable to describe git repository: %v", err)
 			}
-			log.Debugf("Dep repo: %s, version: %+v", gitDep.Url, rev.GetVersion())
+			slog.Debug("Dep repo: %s, version: %+v", gitDep.Url, rev.GetVersion())
 			// TODO: Set image path at configuration time
 			depName, err := LastDir(gitDep.Url)
 			if err != nil {
@@ -128,7 +128,7 @@ func (project *Project) ScanRemoteDeps() (err error) {
 		gitDeps = append(gitDeps, gitDep)
 
 	}
-	log.Debugf("gitDeps: %+v", gitDeps)
+	slog.Debug("Remote dependencies", "gitDeps", gitDeps)
 	project.GitDeps = gitDeps
 	return nil
 }

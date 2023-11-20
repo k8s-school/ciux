@@ -40,6 +40,25 @@ func (v SemVer) String() string {
 	return str
 }
 
+func (v SemVer) ParseReleaseCandidate() (int, error) {
+
+	if len(v.Prerelease) == 0 {
+		return -1, nil
+	}
+
+	var rcRegexp = regexp.MustCompile(`^rc(\d+)$`)
+	match := rcRegexp.FindStringSubmatch(v.Prerelease[0])
+	if len(match) == 0 {
+		return -2, fmt.Errorf("invalid release candidate prefix")
+	}
+
+	rcNum, err := strconv.Atoi(match[1])
+	if err != nil {
+		return -2, err
+	}
+	return rcNum, nil
+}
+
 var semVerRegexp = regexp.MustCompile(`^([A-Za-z]+)?(\d+)\.(\d+)\.(\d+)(?:-((?:[0-9A-Za-z-]+)(?:\.[0-9A-Za-z-]+)*))?(?:\+((?:[0-9A-Za-z-]+)(?:\.[0-9A-Za-z-]+)*))?$`)
 
 // SemVerParse ...

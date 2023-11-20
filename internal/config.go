@@ -1,9 +1,9 @@
 package internal
 
 import (
+	"log/slog"
 	"os"
 
-	"github.com/k8s-school/ciux/log"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -33,7 +33,9 @@ func NewConfig(repositoryPath string) (Config, error) {
 	if err != nil {
 		return *config, err
 	}
-	log.Debugf("Use config file: %s", newviper.ConfigFileUsed())
+	slog.Debug("Ciux config file", "file", newviper.ConfigFileUsed())
+
+	slog.Debug("Set defaults")
 
 	defaults.SetDefaults(config)
 	err = mapstructure.Decode(newviper.AllSettings(), config)

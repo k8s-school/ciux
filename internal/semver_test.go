@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -33,6 +34,7 @@ func TestSemVerParse(t *testing.T) {
 	test("v0.0.0", &SemVer{Prefix: "v"})
 	test("1.2.3", &SemVer{Major: 1, Minor: 2, Patch: 3})
 	test("0.0.0-rc.1", &SemVer{Prerelease: []string{"rc", "1"}})
+	test("0.0.0-rc2", &SemVer{Prerelease: []string{"rc2"}})
 	test("0.0.0-alpha-version.1", &SemVer{Prerelease: []string{"alpha-version", "1"}})
 	test("0.0.0+foo.bar", &SemVer{BuildMetadata: []string{"foo", "bar"}})
 	test("v1.2.3-rc.1+foo.bar", &SemVer{Prefix: "v", Major: 1, Minor: 2, Patch: 3, Prerelease: []string{"rc", "1"}, BuildMetadata: []string{"foo", "bar"}})
@@ -58,4 +60,24 @@ func TestSemVerEqual(t *testing.T) {
 	test(SemVer{BuildMetadata: []string{"foo"}}, SemVer{BuildMetadata: []string{"bar"}}, false)
 	test(SemVer{BuildMetadata: []string{"foo"}}, SemVer{}, false)
 	test(SemVer{}, SemVer{BuildMetadata: []string{"bar"}}, false)
+}
+
+func TestSemVerGetReleaseCandidateNum(t *testing.T) {
+	assert := assert.New(t)
+	test := func(input SemVer, expected int, expectedErr error) {
+		actual, err := input.ParseReleaseCandidate()
+		assert.Equal(expected, actual)
+		assert.Equal(expectedErr, err)
+	}
+
+	// Test cases for release candidate prefix "rc"
+	test(SemVer{Prerelease: []string{"rc1"}}, 1, nil)
+	test(SemVer{Prerelease: []string{"rc2"}}, 2, nil)
+	test(SemVer{Prerelease: []string{"rc10"}}, 10, nil)
+
+	// Test case for invalid release candidate prefix
+	test(SemVer{Prerelease: []string{"invalid"}}, -2, fmt.Errorf("invalid release candidate prefix"))
+
+	// Test case for empty prerelease slice
+	test(SemVer{}, -1, nil)
 }

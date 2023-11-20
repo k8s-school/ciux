@@ -2,6 +2,7 @@ package internal
 
 import (
 	"bufio"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/k8s-school/ciux/log"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -75,7 +75,7 @@ func prepareTestRepos(pattern string) (Git, []Git, error) {
 	if err != nil {
 		return Git{}, []Git{}, err
 	}
-	log.Debugf("yamlData: %s", string(yamlData))
+	slog.Debug("Ciux configuration", "yaml", string(yamlData))
 	ciuxPath := filepath.Join(root, ".ciux")
 	f, err := os.Create(ciuxPath)
 	if err != nil {

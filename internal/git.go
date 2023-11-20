@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -160,7 +161,7 @@ func (gitObj *Git) CloneOrOpen(basePath string, singleBranch bool) error {
 		refName = plumbing.ReferenceName(gitObj.WorkBranch)
 	}
 	var progress *os.File
-	if log.GetLevel() >= log.LvlDebug {
+	if log.IsDebugEnabled() {
 		progress = os.Stdout
 	}
 	repository, err := git.PlainClone(repoDir, false, &git.CloneOptions{
@@ -170,7 +171,7 @@ func (gitObj *Git) CloneOrOpen(basePath string, singleBranch bool) error {
 		Progress:      progress,
 	})
 	if err == git.ErrRepositoryAlreadyExists {
-		log.Warnf("not cloning dependency repository %s, working with existing one: %s", gitObj.Url, repoDir)
+		slog.Warn("not cloning dependency repository %s, working with existing one: %s", gitObj.Url, repoDir)
 		repository, err = git.PlainOpen(repoDir)
 		if err != nil {
 			return fmt.Errorf("unable to open git repository %s: %v", gitObj.Url, err)
@@ -279,6 +280,37 @@ func IsDirty(s git.Status) bool {
 	}
 
 	return false
+}
+
+func (gitObj *Git) UpgradeTag() (string, error) {
+	// Fetch the reference log
+	rev, err := gitObj.GetRevision()
+	if err != nil {
+		return "", fmt.Errorf("unable to get revision: %v", err)
+	}
+	// Get the latest tag
+	tag := rev.Tag
+	if tag == "" {
+		return "v0.0.1", nil
+	}
+	// Upgrade the tag
+	semver := SemVerParse(tag)
+	if err != nil {
+		return "", fmt.Errorf("unable to parse semver tag %s: %v", tag, err)
+	}
+	i, err := semver.ParseReleaseCandidate()
+	if err != nil {
+		return "", fmt.Errorf("unable to parse release candidate: %v", err)
+	}
+	if i == -1 {
+		semver.Minor++
+	} else if semver.Prerelease == nil {
+		semver.Minor++
+		semver.Prerelease = []string{"rc0"}
+	} else if semver.Prerelease[0] == "rc" {
+		semver.Patch++
+	}
+	return semver.String(), nil
 }
 
 // GetRevision the reference as 'git describe ' will do
@@ -409,19 +441,19 @@ func (repo *Git) TaggedCommit(filename string, message string, tag string, annot
 	if err != nil {
 		return nil, nil, err
 	}
-	log.Debugf("Add filename to worktree %s", filename)
+	slog.Debug("Add filename to worktree", "file", filename)
 	_, err = worktree.Add(filename)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	log.Debugf("Commit %s", message)
+	slog.Debug("Commit", "message", message)
 	commit1, err := worktree.Commit(message, &git.CommitOptions{Author: &author})
 	if err != nil {
 		return nil, nil, err
 	}
 
-	log.Debugf("tag %s", tag)
+	slog.Debug("Create tag", "tag", tag)
 
 	var tagOpts *git.CreateTagOptions = nil
 	if annotatedTag {
