@@ -1,4 +1,4 @@
 * TODO Add option to generate version for main project (ciux version path), use to compute
 image name, or "ciux get imagename path"
 * TODO Try to avoid loading $CIUXCONFIG at each github step?
-* TODO manage install of v3 go modules 
+* TODO manage install of v3 go modules
