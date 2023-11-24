@@ -282,37 +282,6 @@ func IsDirty(s git.Status) bool {
 	return false
 }
 
-func (gitObj *Git) UpgradeTag() (string, error) {
-	// Fetch the reference log
-	rev, err := gitObj.GetRevision()
-	if err != nil {
-		return "", fmt.Errorf("unable to get revision: %v", err)
-	}
-	// Get the latest tag
-	tag := rev.Tag
-	if tag == "" {
-		return "v0.0.1", nil
-	}
-	// Upgrade the tag
-	semver := SemVerParse(tag)
-	if err != nil {
-		return "", fmt.Errorf("unable to parse semver tag %s: %v", tag, err)
-	}
-	i, err := semver.ParseReleaseCandidate()
-	if err != nil {
-		return "", fmt.Errorf("unable to parse release candidate: %v", err)
-	}
-	if i == -1 {
-		semver.Minor++
-	} else if semver.Prerelease == nil {
-		semver.Minor++
-		semver.Prerelease = []string{"rc0"}
-	} else if semver.Prerelease[0] == "rc" {
-		semver.Patch++
-	}
-	return semver.String(), nil
-}
-
 // GetRevision the reference as 'git describe ' will do
 func (g *Git) GetRevision() (*GitRevision, error) {
 
@@ -390,6 +359,31 @@ func (rev *GitRevision) GetVersion() string {
 	}
 	version := fmt.Sprintf("%s%s%s", rev.Tag, counterHash, dirty)
 	return version
+}
+
+func (rev *GitRevision) UpgradeTag() (string, error) {
+	// Get the latest tag
+	tag := rev.Tag
+	if tag == "" {
+		return "v0.0.1-rc0", nil
+	}
+	// Upgrade the tag
+	semver := SemVerParse(tag)
+	if semver == nil {
+		return "", fmt.Errorf("invalid semver tag %s", tag)
+	}
+	rcId, err := semver.ParseReleaseCandidate()
+	if err != nil {
+		return "", fmt.Errorf("unable to parse release candidate: %v", err)
+	}
+	if rcId == -1 {
+		semver.Patch++
+		semver.Prerelease = []string{"rc0"}
+		return semver.String(), nil
+	} else {
+		semver.Prerelease[0] = fmt.Sprintf("rc%d", rcId+1)
+	}
+	return semver.String(), nil
 }
 
 func NewGit(dir string) (Git, error) {

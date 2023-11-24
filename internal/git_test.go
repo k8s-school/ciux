@@ -415,3 +415,57 @@ func TestIsDirty(t *testing.T) {
 	require.True(IsDirty(status))
 
 }
+func TestUpgradeTag(t *testing.T) {
+	require := require.New(t)
+
+	tests := []struct {
+		name           string
+		revision       GitRevision
+		expectedResult string
+		expectedError  error
+	}{
+		{
+			name: "no_tag",
+			revision: GitRevision{
+				Tag:      "",
+				Counter:  0,
+				HeadHash: "1234567890abcdef",
+				Dirty:    false,
+			},
+			expectedResult: "v0.0.1-rc0",
+			expectedError:  nil,
+		},
+		{
+			name: "upgrade_patch",
+			revision: GitRevision{
+				Tag:      "v1.0.0",
+				Counter:  0,
+				HeadHash: "1234567890abcdef",
+				Dirty:    false,
+			},
+			expectedResult: "v1.0.1-rc0",
+			expectedError:  nil,
+		},
+		{
+			name: "upgrade_rc",
+			revision: GitRevision{
+				Tag:      "v1.0.0-rc0",
+				Counter:  0,
+				HeadHash: "1234567890abcdef",
+				Dirty:    false,
+			},
+			expectedResult: "v1.0.0-rc1",
+			expectedError:  nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			result, err := tt.revision.UpgradeTag()
+
+			require.Equal(tt.expectedResult, result)
+			require.Equal(tt.expectedError, err)
+		})
+	}
+}
