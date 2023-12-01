@@ -191,24 +191,24 @@ func (project *Project) ScanRemoteDeps() error {
 
 // WriteOutConfig writes out the shell configuration file
 // used be the CI/CD pipeline
-func (p *Project) WriteOutConfig() error {
-
+func (p *Project) WriteOutConfig() (string, error) {
+	msg := ""
 	var ciuxConfigFile = os.Getenv("CIUXCONFIG")
 	if len(ciuxConfigFile) == 0 {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return fmt.Errorf("unable to get user home directory: %v", err)
+			return msg, fmt.Errorf("unable to get user home directory: %v", err)
 		}
 		ciuxCfgDir := filepath.Join(home, ".ciux")
 		os.MkdirAll(ciuxCfgDir, 0755)
 		if err != nil {
-			return fmt.Errorf("unable to create directory %s: %v", ciuxCfgDir, err)
+			return msg, fmt.Errorf("unable to create directory %s: %v", ciuxCfgDir, err)
 		}
 		ciuxConfigFile = filepath.Join(ciuxCfgDir, "ciux.sh")
 	}
 	f, err := os.Create(ciuxConfigFile)
 	if err != nil {
-		return fmt.Errorf("unable to create configuration file %s: %v", ciuxConfigFile, err)
+		return msg, fmt.Errorf("unable to create configuration file %s: %v", ciuxConfigFile, err)
 	}
 	defer f.Close()
 
@@ -222,33 +222,34 @@ func (p *Project) WriteOutConfig() error {
 		if !gitObj.isRemote() {
 			varName, err := gitObj.GetEnVarPrefix()
 			if err != nil {
-				return fmt.Errorf("unable to get environment variable name for git repository %v: %v", gitObj, err)
+				return msg, fmt.Errorf("unable to get environment variable name for git repository %v: %v", gitObj, err)
 			}
 
 			root, err := gitObj.GetRoot()
 			if err != nil {
-				return fmt.Errorf("unable to get root of git repository: %v", err)
+				return msg, fmt.Errorf("unable to get root of git repository: %v", err)
 			}
 
 			depEnv := fmt.Sprintf("export %s_DIR=%s\n", varName, root)
 			_, err = f.WriteString(depEnv)
 			if err != nil {
-				return fmt.Errorf("unable to write variable %s to file %s: %v", varName, ciuxConfigFile, err)
+				return msg, fmt.Errorf("unable to write variable %s to file %s: %v", varName, ciuxConfigFile, err)
 			}
 
 			rev, err := gitObj.GetRevision()
 			if err != nil {
-				return fmt.Errorf("unable to describe git repository: %v", err)
+				return msg, fmt.Errorf("unable to describe git repository: %v", err)
 			}
 			depVersion := fmt.Sprintf("export %s_VERSION=%s\n", varName, rev.GetVersion())
 			_, err = f.WriteString(depVersion)
 			if err != nil {
-				return fmt.Errorf("unable to write variable %s_VERSION to file %s: %v", varName, ciuxConfigFile, err)
+				return msg, fmt.Errorf("unable to write variable %s_VERSION to file %s: %v", varName, ciuxConfigFile, err)
 			}
 
 		}
 	}
-	return nil
+	msg = fmt.Sprintf("Configuration file %s written", ciuxConfigFile)
+	return msg, nil
 }
 
 func (p *Project) GetGits() []Git {

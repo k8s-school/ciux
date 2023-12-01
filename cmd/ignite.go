@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var itest bool
+
 // igniteCmd represents the revision command
 var igniteCmd = &cobra.Command{
 	Use:     "ignite repository_path",
@@ -27,20 +29,26 @@ var igniteCmd = &cobra.Command{
 
 		// Clone dependencies directories and checkout the correct revision
 		// Check container images exist
-		err := project.RetrieveDepsSources(depsDir)
+		if itest {
+			err := project.RetrieveDepsSources(depsDir)
+			internal.FailOnError(err)
+			goMsg, err := project.InstallGoModules()
+			internal.FailOnError(err)
+			internal.Infof("%s", project.String())
+			internal.Infof("Go modules installed:\n%s", goMsg)
+			images, err := project.CheckImages()
+			internal.FailOnError(err)
+			internal.Infof("Images: %v", images)
+		}
+		msg, err := project.WriteOutConfig()
 		internal.FailOnError(err)
-		goMsg, err := project.InstallGoModules()
-		internal.FailOnError(err)
-		err = project.WriteOutConfig()
-		internal.FailOnError(err)
-		internal.Infof("%s", project.String())
-		internal.Infof("Go modules installed:\n%s", goMsg)
-		images, err := project.CheckImages()
-		internal.FailOnError(err)
-		internal.Infof("Images: %v", images)
+		internal.Infof("%s", msg)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(igniteCmd)
+
+	// Here you will define your flags and configuration settings.
+	igniteCmd.PersistentFlags().BoolVarP(&itest, "itest", "i", false, "install dependencies for runnning integration tests")
 }
