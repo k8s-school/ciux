@@ -17,9 +17,10 @@ type Project struct {
 }
 
 type Dependency struct {
-	Clone bool
-	Pull  bool
-	Git   Git
+	Clone   bool
+	Git     Git
+	Pull    bool
+	Package string
 }
 
 // NewProject creates a new Project struct
@@ -34,9 +35,10 @@ func NewProject(repository_path string) Project {
 	deps := []*Dependency{}
 	for _, depConfig := range config.Dependencies {
 		dep := Dependency{
-			Clone: depConfig.Clone,
-			Pull:  depConfig.Pull,
-			Git:   Git{Url: depConfig.Url},
+			Clone:   depConfig.Clone,
+			Git:     Git{Url: depConfig.Url},
+			Pull:    depConfig.Pull,
+			Package: depConfig.Package,
 		}
 		deps = append(deps, &dep)
 	}
@@ -67,15 +69,20 @@ func (p *Project) String() string {
 	msg := fmt.Sprintf("Project %s\n  %s %+s\n", name, rootMain, revMain.GetVersion())
 	msg += "Dependencies:"
 	for _, dep := range p.Dependencies {
-		revDep, err := dep.Git.GetRevision()
-		if err != nil {
-			return msg + fmt.Sprintf("unable to describe git repository: %v", err)
+		slog.Debug("Dependency", "url", dep.Git.Url, "branch", dep.Git.WorkBranch)
+		if dep.Package != "" {
+			msg += fmt.Sprintf("\n  %s %s", dep.Git.Url, dep.Package)
+		} else {
+			revDep, err := dep.Git.GetRevision()
+			if err != nil {
+				return msg + fmt.Sprintf("unable to describe git repository: %v", err)
+			}
+			rootDep, err := dep.Git.GetRoot()
+			if err != nil {
+				return msg + fmt.Sprintf("unable to get root of git repository: %v", err)
+			}
+			msg += fmt.Sprintf("\n  %s %s", rootDep, revDep.GetVersion())
 		}
-		rootDep, err := dep.Git.GetRoot()
-		if err != nil {
-			return msg + fmt.Sprintf("unable to get root of git repository: %v", err)
-		}
-		msg += fmt.Sprintf("\n  %s %s", rootDep, revDep.GetVersion())
 	}
 	return msg
 }
@@ -119,22 +126,34 @@ func (p *Project) CheckImages() ([]name.Reference, error) {
 	return foundImages, nil
 }
 
-func (p *Project) InstallGoModules() error {
+func (p *Project) InstallGoModules() (string, error) {
+	msg := ""
 	for _, dep := range p.Dependencies {
-		if dep.Clone {
+		if dep.Package != "" {
+			cmd := fmt.Sprintf("go install %s", dep.Package)
+			outstr, errstr, err := ExecCmd(cmd, false, false)
+			if log.IsDebugEnabled() {
+				slog.Debug("Command output", "stdout", outstr, "stderr", errstr)
+			}
+			if err != nil {
+				return msg, fmt.Errorf("unable to install go module %s: %v", dep.Package, err)
+			}
+			msg += fmt.Sprintf("  %s\n", dep.Package)
+		} else if dep.Clone {
 			isGoMod, err := dep.Git.IsGoModule()
 			if err != nil {
-				return fmt.Errorf("unable to check if git repository %s is a go module: %v", dep.Git.Url, err)
+				return msg, fmt.Errorf("unable to check if git repository %s is a go module: %v", dep.Git.Url, err)
 			}
 			if isGoMod {
 				err := dep.Git.GoInstall()
 				if err != nil {
-					return fmt.Errorf("unable to install go modules for git repository %s: %v", dep.Git.Url, err)
+					return msg, fmt.Errorf("unable to install go modules for git repository %s: %v", dep.Git.Url, err)
 				}
+				msg += fmt.Sprintf("  from source: %s\n", dep.Git.Url)
 			}
 		}
 	}
-	return nil
+	return msg, nil
 }
 
 // ScanRemoteDeps retrieves the work branch for each dependency

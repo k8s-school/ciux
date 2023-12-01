@@ -29,11 +29,12 @@ var igniteCmd = &cobra.Command{
 		// Check container images exist
 		err := project.RetrieveDepsSources(depsDir)
 		internal.FailOnError(err)
-		err = project.InstallGoModules()
+		goMsg, err := project.InstallGoModules()
 		internal.FailOnError(err)
 		err = project.WriteOutConfig()
 		internal.FailOnError(err)
 		internal.Infof("%s", project.String())
+		internal.Infof("Go modules installed:\n%s", goMsg)
 		images, err := project.CheckImages()
 		internal.FailOnError(err)
 		internal.Infof("Images: %v", images)
