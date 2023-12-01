@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/go-git/go-git/plumbing/protocol/packp/sideband"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -15,14 +16,6 @@ import (
 	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/k8s-school/ciux/log"
 )
-
-type GitRevision struct {
-	Tag      string
-	Counter  int
-	HeadHash string
-	Dirty    bool
-	Branch   string
-}
 
 type Git struct {
 	Tags       []string
@@ -138,20 +131,20 @@ func (gitObj *Git) GetEnVarName() (string, error) {
 	return varName, nil
 }
 
-func (gitObj *Git) CloneOrOpen(basePath string, singleBranch bool) error {
+func (gitObj *Git) CloneOrOpen(destBasePath string, singleBranch bool) error {
 	name, err := gitObj.GetName()
 	if err != nil {
 		return fmt.Errorf("unable to get name from url %s: %v", gitObj.Url, err)
 	}
-	var repoDir string
-	if basePath == "" {
-		repoDir, err = os.MkdirTemp(os.TempDir(), "ciux-"+name+"-")
+	var destPath string
+	if destBasePath == "" {
+		destPath, err = os.MkdirTemp(os.TempDir(), "ciux-"+name+"-")
 		if err != nil {
 			return err
 		}
 	} else {
-		repoDir = filepath.Join(basePath, name)
-		err := os.MkdirAll(repoDir, 0755)
+		destPath = filepath.Join(destBasePath, name)
+		err := os.MkdirAll(destPath, 0755)
 		if err != nil {
 			return err
 		}
@@ -160,19 +153,20 @@ func (gitObj *Git) CloneOrOpen(basePath string, singleBranch bool) error {
 	if singleBranch {
 		refName = plumbing.ReferenceName(gitObj.WorkBranch)
 	}
-	var progress *os.File
+	var progress sideband.Progress = nil
 	if log.IsDebugEnabled() {
 		progress = os.Stdout
 	}
-	repository, err := git.PlainClone(repoDir, false, &git.CloneOptions{
+	options := &git.CloneOptions{
 		URL:           gitObj.Url,
 		ReferenceName: refName,
 		SingleBranch:  singleBranch,
 		Progress:      progress,
-	})
+	}
+	repository, err := git.PlainClone(destPath, false, options)
 	if err == git.ErrRepositoryAlreadyExists {
-		slog.Warn("not cloning dependency repository %s, working with existing one: %s", gitObj.Url, repoDir)
-		repository, err = git.PlainOpen(repoDir)
+		slog.Warn("not cloning dependency repository %s, working with existing one: %s", gitObj.Url, destPath)
+		repository, err = git.PlainOpen(destPath)
 		if err != nil {
 			return fmt.Errorf("unable to open git repository %s: %v", gitObj.Url, err)
 		}
@@ -346,46 +340,6 @@ func (g *Git) GetRevision() (*GitRevision, error) {
 	return &rev, nil
 }
 
-// GetVersion returns the reference as 'git describe ' will do
-// except that tag is the latest semver annotated tag
-func (rev *GitRevision) GetVersion() string {
-	var dirty string
-	if rev.Dirty {
-		dirty = "-dirty"
-	}
-	var counterHash string
-	if rev.Counter != 0 {
-		counterHash = fmt.Sprintf("-%d-g%s", rev.Counter, rev.HeadHash[0:7])
-	}
-	version := fmt.Sprintf("%s%s%s", rev.Tag, counterHash, dirty)
-	return version
-}
-
-func (rev *GitRevision) UpgradeTag() (string, error) {
-	// Get the latest tag
-	tag := rev.Tag
-	if tag == "" {
-		return "v0.0.1-rc0", nil
-	}
-	// Upgrade the tag
-	semver := SemVerParse(tag)
-	if semver == nil {
-		return "", fmt.Errorf("invalid semver tag %s", tag)
-	}
-	rcId, err := semver.ParseReleaseCandidate()
-	if err != nil {
-		return "", fmt.Errorf("unable to parse release candidate: %v", err)
-	}
-	if rcId == -1 {
-		semver.Patch++
-		semver.Prerelease = []string{"rc0"}
-		return semver.String(), nil
-	} else {
-		semver.Prerelease[0] = fmt.Sprintf("rc%d", rcId+1)
-	}
-	return semver.String(), nil
-}
-
 func NewGit(dir string) (Git, error) {
 	repo := Git{}
 	r, err := git.PlainOpen(dir)
@@ -405,6 +359,35 @@ func (git *Git) GetRoot() (string, error) {
 		return "", err
 	}
 	return worktree.Filesystem.Root(), nil
+}
+
+func (git *Git) IsGoModule() (bool, error) {
+	root, err := git.GetRoot()
+	if err != nil {
+		return false, fmt.Errorf("unable to get root of git repository: %v", err)
+	}
+
+	// Check if go.mod and go.sum exist in root
+	for _, file := range []string{"go.mod", "go.sum"} {
+		modFile := filepath.Join(root, file)
+		_, err = os.Stat(modFile)
+		if os.IsNotExist(err) {
+			slog.Debug("Not a go module", "dependency_path", root)
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func (git *Git) GoInstall() error {
+	root, err := git.GetRoot()
+	if err != nil {
+		return fmt.Errorf("unable to get root of git repository: %v", err)
+	}
+
+	cmd := fmt.Sprintf("go install -C %s", root)
+	ExecCmd(cmd, false, false)
+	return nil
 }
 
 func (repo *Git) CreateBranch(branchName string) error {

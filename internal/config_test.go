@@ -12,7 +12,7 @@ func TestNewConfig(t *testing.T) {
 	assert.NoError(err)
 	assert.Equal("test-registry.io", c.Registry)
 
-	dep := Dependency{
+	dep := DepConfig{
 		Url:   "file:///tmp/ciux-dep-test",
 		Clone: true,
 		Pull:  true,

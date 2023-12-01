@@ -7,12 +7,19 @@ import (
 	"path/filepath"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/k8s-school/ciux/log"
 )
 
 type Project struct {
-	Git     Git
-	Config  Config
-	GitDeps []Git
+	GitMain       Git
+	ImageRegistry string
+	Dependencies  []*Dependency
+}
+
+type Dependency struct {
+	Clone bool
+	Pull  bool
+	Git   Git
 }
 
 // NewProject creates a new Project struct
@@ -23,9 +30,21 @@ func NewProject(repository_path string) Project {
 	FailOnError(err)
 	config, err := NewConfig(repository_path)
 	FailOnError(err)
+
+	deps := []*Dependency{}
+	for _, depConfig := range config.Dependencies {
+		dep := Dependency{
+			Clone: depConfig.Clone,
+			Pull:  depConfig.Pull,
+			Git:   Git{Url: depConfig.Url},
+		}
+		deps = append(deps, &dep)
+	}
+
 	p := Project{
-		Git:    git,
-		Config: config,
+		GitMain:       git,
+		ImageRegistry: config.Registry,
+		Dependencies:  deps,
 	}
 	p.ScanRemoteDeps()
 	return p
@@ -33,26 +52,26 @@ func NewProject(repository_path string) Project {
 
 func (p *Project) String() string {
 
-	name, err := p.Git.GetName()
+	name, err := p.GitMain.GetName()
 	if err != nil {
 		return fmt.Sprintf("unable to get project name: %v", err)
 	}
-	revMain, err := p.Git.GetRevision()
+	revMain, err := p.GitMain.GetRevision()
 	if err != nil {
 		return fmt.Sprintf("unable to describe project repository: %v", err)
 	}
-	rootMain, err := p.Git.GetRoot()
+	rootMain, err := p.GitMain.GetRoot()
 	if err != nil {
 		return fmt.Sprintf("unable to get root of project repository: %v", err)
 	}
 	msg := fmt.Sprintf("Project %s\n  %s %+s\n", name, rootMain, revMain.GetVersion())
 	msg += "Dependencies:"
-	for _, dep := range p.GitDeps {
-		revDep, err := dep.GetRevision()
+	for _, dep := range p.Dependencies {
+		revDep, err := dep.Git.GetRevision()
 		if err != nil {
 			return msg + fmt.Sprintf("unable to describe git repository: %v", err)
 		}
-		rootDep, err := dep.GetRoot()
+		rootDep, err := dep.Git.GetRoot()
 		if err != nil {
 			return msg + fmt.Sprintf("unable to get root of git repository: %v", err)
 		}
@@ -61,13 +80,13 @@ func (p *Project) String() string {
 	return msg
 }
 
-func (p *Project) SetDepsRepos(basePath string) error {
-	for i, depConfig := range p.Config.Dependencies {
-		if depConfig.Clone {
+func (p *Project) AddDepsRepos(basePath string) error {
+	for i, dep := range p.Dependencies {
+		if dep.Clone {
 			singleBranch := true
-			err := p.GitDeps[i].CloneOrOpen(basePath, singleBranch)
+			err := p.Dependencies[i].Git.CloneOrOpen(basePath, singleBranch)
 			if err != nil {
-				return fmt.Errorf("unable to set git repository %s: %v", p.GitDeps[i].Url, err)
+				return fmt.Errorf("unable to set git repository %s: %v", p.Dependencies[i].Git.Url, err)
 			}
 		}
 	}
@@ -76,9 +95,9 @@ func (p *Project) SetDepsRepos(basePath string) error {
 
 func (p *Project) CheckImages() ([]name.Reference, error) {
 	foundImages := []name.Reference{}
-	for i, depConfig := range p.Config.Dependencies {
-		if depConfig.Pull {
-			gitDep := p.GitDeps[i]
+	for i, dep := range p.Dependencies {
+		if dep.Pull {
+			gitDep := p.Dependencies[i].Git
 			rev, err := gitDep.GetRevision()
 			if err != nil {
 				return foundImages, fmt.Errorf("unable to describe git repository: %v", err)
@@ -89,7 +108,7 @@ func (p *Project) CheckImages() ([]name.Reference, error) {
 			if err != nil {
 				return foundImages, fmt.Errorf("unable to get last directory of git repository: %v", err)
 			}
-			imageUrl := fmt.Sprintf("%s/%s:%s", p.Config.Registry, depName, rev.GetVersion())
+			imageUrl := fmt.Sprintf("%s/%s:%s", p.ImageRegistry, depName, rev.GetVersion())
 			_, ref, err := DescImage(imageUrl)
 			if err != nil {
 				return foundImages, fmt.Errorf("unable to check image existence: %v, %v", err, ref)
@@ -100,18 +119,35 @@ func (p *Project) CheckImages() ([]name.Reference, error) {
 	return foundImages, nil
 }
 
+func (p *Project) InstallGoModules() error {
+	for _, dep := range p.Dependencies {
+		if dep.Clone {
+			isGoMod, err := dep.Git.IsGoModule()
+			if err != nil {
+				return fmt.Errorf("unable to check if git repository %s is a go module: %v", dep.Git.Url, err)
+			}
+			if isGoMod {
+				err := dep.Git.GoInstall()
+				if err != nil {
+					return fmt.Errorf("unable to install go modules for git repository %s: %v", dep.Git.Url, err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // ScanRemoteDeps retrieves the work branch for each dependency
 // It is the same branch as the main repository if it exists
 // or the default branch of the dependency repository otherwise
-func (project *Project) ScanRemoteDeps() (err error) {
-	gitMain := project.Git
+func (project *Project) ScanRemoteDeps() error {
+	gitMain := project.GitMain
 	revMain, err := gitMain.GetRevision()
 	if err != nil {
 		return fmt.Errorf("unable to describe git repository: %v", err)
 	}
-	gitDeps := []Git{}
-	for _, dep := range project.Config.Dependencies {
-		gitDep := Git{Url: dep.Url}
+	for _, dep := range project.Dependencies {
+		gitDep := &dep.Git
 		hasBranch, err := gitDep.HasBranch(revMain.Branch)
 		if err != nil {
 			return fmt.Errorf("unable to check branch existence for dependency repository %s: %v", gitDep.Url, err)
@@ -125,11 +161,12 @@ func (project *Project) ScanRemoteDeps() (err error) {
 			}
 			gitDep.WorkBranch = main
 		}
-		gitDeps = append(gitDeps, gitDep)
-
 	}
-	slog.Debug("Remote dependencies", "gitDeps", gitDeps)
-	project.GitDeps = gitDeps
+	if log.IsDebugEnabled() {
+		for _, dep := range project.Dependencies {
+			slog.Debug("Dependency", "url", dep.Git.Url, "branch", dep.Git.WorkBranch)
+		}
+	}
 	return nil
 }
 
@@ -156,7 +193,12 @@ func (p *Project) WriteOutConfig() error {
 	}
 	defer f.Close()
 
-	gitRepos := append(p.GitDeps, p.Git)
+	gitDeps := []Git{}
+	for _, dep := range p.Dependencies {
+		gitDeps = append(gitDeps, dep.Git)
+	}
+
+	gitRepos := append(gitDeps, p.GitMain)
 	for _, gitObj := range gitRepos {
 		if !gitObj.isRemote() {
 			varName, err := gitObj.GetEnVarName()

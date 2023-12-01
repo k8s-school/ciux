@@ -13,9 +13,9 @@ import (
 
 // NewConfig reads ciux config file to buld a Config struct
 // it uses repositoryPath if not null or current directory
-func NewConfig(repositoryPath string) (Config, error) {
+func NewConfig(repositoryPath string) (ProjConfig, error) {
 	var configPath string
-	config := new(Config)
+	config := new(ProjConfig)
 	var err error
 	if len(repositoryPath) == 0 {
 		configPath, err = os.Getwd()
@@ -45,13 +45,13 @@ func NewConfig(repositoryPath string) (Config, error) {
 	return *config, nil
 }
 
-type Dependency struct {
+type DepConfig struct {
 	Url   string `mapstructure:"url" default:""`
 	Clone bool   `mapstructure:"clone" default:"false"`
 	Pull  bool   `mapstructure:"pull" default:"false"`
 }
 
-type Config struct {
-	Registry     string       `mapstructure:"registry" default:""`
-	Dependencies []Dependency `mapstructure:"dependencies"`
+type ProjConfig struct {
+	Registry     string      `mapstructure:"registry" default:""`
+	Dependencies []DepConfig `mapstructure:"dependencies"`
 }

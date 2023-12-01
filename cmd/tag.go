@@ -20,10 +20,14 @@ var tagCmd = &cobra.Command{
 		git, err := internal.NewGit(repositoryPath)
 		internal.FailOnError(err)
 
-		git.GetRevision()
+		rev, err := git.GetRevision()
+		internal.FailOnError(err)
+		newTag, err := rev.UpgradeTag()
+		internal.FailOnError(err)
+		internal.Infof("New tag: %s", newTag)
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(releaseCmd)
+	rootCmd.AddCommand(tagCmd)
 }

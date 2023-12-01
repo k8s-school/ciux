@@ -13,11 +13,11 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
 )
 
-func prepareTestRepos(pattern string) (Git, []Git, error) {
+func prepareTestProject(pattern string) (Git, []Git, error) {
 
 	// Create a temporary directory for the project git repository
 	gitMeta, err := initGitRepo(pattern + "main-")
@@ -40,9 +40,9 @@ func prepareTestRepos(pattern string) (Git, []Git, error) {
 	}
 
 	// Write .ciux file in project directory
-	config := Config{
+	config := ProjConfig{
 		Registry: "test-registry.io",
-		Dependencies: []Dependency{
+		Dependencies: []DepConfig{
 			{
 				Url:   "file://" + depRoot,
 				Clone: true,
@@ -54,10 +54,6 @@ func prepareTestRepos(pattern string) (Git, []Git, error) {
 				Pull:  false,
 			},
 		},
-	}
-
-	project := Project{
-		Config: config,
 	}
 
 	items := map[string]interface{}{}
@@ -121,77 +117,76 @@ func prepareTestRepos(pattern string) (Git, []Git, error) {
 	if err != nil {
 		return Git{}, []Git{}, err
 	}
-	project.Git = gitMeta
-	project.GitDeps = []Git{gitDepMeta}
 	return gitMeta, []Git{gitDepMeta}, nil
 }
 
 func TestScanRemoteDeps(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 
-	localGit, remoteGitDeps, err := prepareTestRepos("ciux-scanremotedeps-test-")
-	assert.NoError(err)
+	localGit, remoteGitDeps, err := prepareTestProject("ciux-scanremotedeps-test-")
+	require.NoError(err)
 	root, err := localGit.GetRoot()
-	assert.NoError(err)
+	require.NoError(err)
 	defer os.RemoveAll(root)
 	depRoot, err := remoteGitDeps[0].GetRoot()
-	assert.NoError(err)
+	require.NoError(err)
 	defer os.RemoveAll(depRoot)
 
 	project := NewProject(root)
 
 	// Assert that the dependency has the correct branch information
-	assert.Equal("master", project.GitDeps[0].WorkBranch)
+	require.Equal("master", project.Dependencies[0].Git.WorkBranch)
 
 	// Create testbranch in the main repository
 	branchName := "testbranch"
 	err = localGit.CreateBranch(branchName)
-	assert.NoError(err)
+	require.NoError(err)
 
 	err = project.ScanRemoteDeps()
-	assert.NoError(err)
-	assert.Equal("master", project.GitDeps[0].WorkBranch)
+	require.NoError(err)
+	require.Equal("master", project.Dependencies[0].Git.WorkBranch)
 
 	// Create testbranch in the dependency repository
 	err = remoteGitDeps[0].CreateBranch(branchName)
-	assert.NoError(err)
+	require.NoError(err)
 
 	err = project.ScanRemoteDeps()
-	assert.NoError(err)
-	assert.Equal("testbranch", project.GitDeps[0].WorkBranch)
+	require.NoError(err)
+	require.Equal("testbranch", project.Dependencies[0].Git.WorkBranch)
 
 }
 func TestWriteOutConfig(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 
-	localGit, _, err := prepareTestRepos("ciux-writeoutconfig-test-")
-	assert.NoError(err)
+	localGit, _, err := prepareTestProject("ciux-writeoutconfig-test-")
+	require.NoError(err)
 	root, err := localGit.GetRoot()
-	assert.NoError(err)
+	require.NoError(err)
 
 	project := NewProject(root)
 	tmpDir, err := os.MkdirTemp("", "ciux-writeoutconfig-test-projectdeps-")
-	assert.NoError(err)
-	project.SetDepsRepos(tmpDir)
+	require.NoError(err)
+	project.AddDepsRepos(tmpDir)
+	ciuxConfig := filepath.Join(root, "ciux.sh")
+	os.Setenv("CIUXCONFIG", ciuxConfig)
 	err = project.WriteOutConfig()
-	assert.NoError(err)
+	require.NoError(err)
 
 	// Assert that the .ciux.sh file was created
-	ciuxConfig := filepath.Join(root, "ciux.sh")
 	t.Logf("ciuxConfig: %s", ciuxConfig)
 	_, err = os.Stat(ciuxConfig)
-	assert.NoError(err)
+	require.NoError(err)
 
 	// Assert that the file contains the expected environment variables
-	varName, err := project.GitDeps[0].GetEnVarName()
-	assert.NoError(err)
-	depRoot, err := project.GitDeps[0].GetRoot()
-	assert.NoError(err)
+	varName, err := project.Dependencies[0].Git.GetEnVarName()
+	require.NoError(err)
+	depRoot, err := project.Dependencies[0].Git.GetRoot()
+	require.NoError(err)
 	expectedVars := []string{
 		"export " + varName + "=" + depRoot,
 	}
 	f, err := os.Open(ciuxConfig)
-	assert.NoError(err)
+	require.NoError(err)
 	defer f.Close()
 
 	scanner := bufio.NewScanner(f)
@@ -205,7 +200,7 @@ func TestWriteOutConfig(t *testing.T) {
 		}
 		expectedVars = notFoundVars
 	}
-	assert.Empty(expectedVars)
+	require.Empty(expectedVars)
 
 	// os.RemoveAll(root)
 	// os.RemoveAll(depRoot)
