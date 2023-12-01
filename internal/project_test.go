@@ -166,7 +166,7 @@ func TestWriteOutConfig(t *testing.T) {
 	project := NewProject(root)
 	tmpDir, err := os.MkdirTemp("", "ciux-writeoutconfig-test-projectdeps-")
 	require.NoError(err)
-	project.AddDepsRepos(tmpDir)
+	project.RetrieveDepsSources(tmpDir)
 	ciuxConfig := filepath.Join(root, "ciux.sh")
 	os.Setenv("CIUXCONFIG", ciuxConfig)
 	err = project.WriteOutConfig()
@@ -178,12 +178,19 @@ func TestWriteOutConfig(t *testing.T) {
 	require.NoError(err)
 
 	// Assert that the file contains the expected environment variables
-	varName, err := project.Dependencies[0].Git.GetEnVarName()
-	require.NoError(err)
-	depRoot, err := project.Dependencies[0].Git.GetRoot()
-	require.NoError(err)
-	expectedVars := []string{
-		"export " + varName + "=" + depRoot,
+	expectedVars := []string{}
+	for _, git := range project.GetGits() {
+		if !git.isRemote() {
+			varName, err := git.GetEnVarPrefix()
+			require.NoError(err)
+			depRoot, err := git.GetRoot()
+			require.NoError(err)
+			expectedVars = []string{
+				"export " + varName + "_DIR=" + depRoot,
+				"export " + varName + "_VERSION=v1.0.0",
+			}
+			defer os.RemoveAll(depRoot)
+		}
 	}
 	f, err := os.Open(ciuxConfig)
 	require.NoError(err)
@@ -202,6 +209,6 @@ func TestWriteOutConfig(t *testing.T) {
 	}
 	require.Empty(expectedVars)
 
-	// os.RemoveAll(root)
-	// os.RemoveAll(depRoot)
+	os.RemoveAll(root)
+
 }

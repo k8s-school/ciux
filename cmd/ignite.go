@@ -27,7 +27,9 @@ var igniteCmd = &cobra.Command{
 
 		// Clone dependencies directories and checkout the correct revision
 		// Check container images exist
-		err := project.AddDepsRepos(depsDir)
+		err := project.RetrieveDepsSources(depsDir)
+		internal.FailOnError(err)
+		err = project.InstallGoModules()
 		internal.FailOnError(err)
 		err = project.WriteOutConfig()
 		internal.FailOnError(err)

@@ -121,7 +121,7 @@ func (gitObj *Git) GetName() (string, error) {
 	return lastDir, nil
 }
 
-func (gitObj *Git) GetEnVarName() (string, error) {
+func (gitObj *Git) GetEnVarPrefix() (string, error) {
 	varName, err := gitObj.GetName()
 	if err != nil {
 		return varName, fmt.Errorf("unable to get name for git repository %v: %v", gitObj, err)
@@ -386,7 +386,13 @@ func (git *Git) GoInstall() error {
 	}
 
 	cmd := fmt.Sprintf("go install -C %s", root)
-	ExecCmd(cmd, false, false)
+	outstr, errstr, err := ExecCmd(cmd, false, false)
+	if log.IsDebugEnabled() {
+		slog.Debug("go install", "cmd", cmd, "out", outstr, "err", errstr)
+	}
+	if err != nil {
+		return fmt.Errorf("unable to install go modules for git repository %s: %v", git.Url, err)
+	}
 	return nil
 }
 

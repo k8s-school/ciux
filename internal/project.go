@@ -80,7 +80,7 @@ func (p *Project) String() string {
 	return msg
 }
 
-func (p *Project) AddDepsRepos(basePath string) error {
+func (p *Project) RetrieveDepsSources(basePath string) error {
 	for i, dep := range p.Dependencies {
 		if dep.Clone {
 			singleBranch := true
@@ -201,7 +201,7 @@ func (p *Project) WriteOutConfig() error {
 	gitRepos := append(gitDeps, p.GitMain)
 	for _, gitObj := range gitRepos {
 		if !gitObj.isRemote() {
-			varName, err := gitObj.GetEnVarName()
+			varName, err := gitObj.GetEnVarPrefix()
 			if err != nil {
 				return fmt.Errorf("unable to get environment variable name for git repository %v: %v", gitObj, err)
 			}
@@ -230,4 +230,12 @@ func (p *Project) WriteOutConfig() error {
 		}
 	}
 	return nil
+}
+
+func (p *Project) GetGits() []Git {
+	gits := []Git{p.GitMain}
+	for _, dep := range p.Dependencies {
+		gits = append(gits, dep.Git)
+	}
+	return gits
 }

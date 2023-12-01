@@ -367,3 +367,16 @@ func TestIsDirty(t *testing.T) {
 	require.True(IsDirty(status))
 
 }
+func TestGoInstall(t *testing.T) {
+	require := require.New(t)
+
+	git := Git{Url: "https://github.com/k8s-school/ciux"}
+
+	err := git.CloneOrOpen("", false)
+	require.NoError(err)
+
+	err = git.GoInstall()
+	require.NoError(err)
+
+	// TODO: Add assertions to verify the behavior of the GoInstall function
+}
