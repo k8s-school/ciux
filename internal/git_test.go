@@ -22,7 +22,7 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func gitDescribeTest(require *require.Assertions, gitMeta Git, expectedTagName string, expectedCounter int, expectedHeadHash string, expectedDirty bool) {
+func getRevisionTest(require *require.Assertions, gitMeta Git, expectedTagName string, expectedCounter int, expectedHeadHash string, expectedDirty bool) {
 	revision, err := gitMeta.GetRevision()
 	require.NoError(err)
 	require.Equal(expectedTagName, revision.Tag)
@@ -95,9 +95,9 @@ func TestGitSemverTagMap(t *testing.T) {
 
 }
 
-func TestGitDescribe(t *testing.T) {
+func TestGetRevision(t *testing.T) {
 	require := require.New(t)
-	gitMeta, err := initGitRepo("ciux-git-describe-test-")
+	gitMeta, err := initGitRepo("ciux-git-getrevision-test-")
 	require.NoError(err)
 	repo := gitMeta.Repository
 	worktree, err := repo.Worktree()
@@ -105,22 +105,22 @@ func TestGitDescribe(t *testing.T) {
 
 	commit1, _, err := gitMeta.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
 	require.NoError(err)
-	gitDescribeTest(require, gitMeta, "v1.0.0", 0, commit1.String(), false)
+	getRevisionTest(require, gitMeta, "v1.0.0", 0, commit1.String(), false)
 
 	commit2, _ := worktree.Commit("second", &git.CommitOptions{Author: &author})
-	gitDescribeTest(require, gitMeta, "v1.0.0", 1, commit2.String(), false)
+	getRevisionTest(require, gitMeta, "v1.0.0", 1, commit2.String(), false)
 
 	commit3, _ := worktree.Commit("third", &git.CommitOptions{Author: &author})
-	gitDescribeTest(require, gitMeta, "v1.0.0", 2, commit3.String(), false)
+	getRevisionTest(require, gitMeta, "v1.0.0", 2, commit3.String(), false)
 
 	// Ignore non annotated tag
 	repo.CreateTag("v2.0.0", commit3, nil)
-	gitDescribeTest(require, gitMeta, "v1.0.0", 2, commit3.String(), false)
+	getRevisionTest(require, gitMeta, "v1.0.0", 2, commit3.String(), false)
 }
 
-func TestGitDescribeWithBranch(t *testing.T) {
+func TestGetRevisionWithBranch(t *testing.T) {
 	require := require.New(t)
-	gitMeta, err := initGitRepo("ciux-git-describe-test-")
+	gitMeta, err := initGitRepo("ciux-git-getrevision-branch-test-")
 	require.NoError(err)
 	repo := gitMeta.Repository
 	worktree, err := repo.Worktree()
@@ -128,9 +128,10 @@ func TestGitDescribeWithBranch(t *testing.T) {
 
 	commit1, _, err := gitMeta.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
 	require.NoError(err)
-	gitDescribeTest(require, gitMeta, "v1.0.0", 0, commit1.String(), false)
+	getRevisionTest(require, gitMeta, "v1.0.0", 0, commit1.String(), false)
 
-	branch := plumbing.ReferenceName("testbranch")
+	branchName := "testbranch"
+	branch := plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", branchName))
 	err = worktree.Checkout(&git.CheckoutOptions{
 		Branch: branch,
 		Create: true,
@@ -139,7 +140,37 @@ func TestGitDescribeWithBranch(t *testing.T) {
 
 	commit2, _, err := gitMeta.TaggedCommit("second.txt", "second", "v2.0.0", true, author)
 	require.NoError(err)
-	gitDescribeTest(require, gitMeta, "v2.0.0", 0, commit2.String(), false)
+	getRevisionTest(require, gitMeta, "v2.0.0", 0, commit2.String(), false)
+	rev, err := gitMeta.GetRevision()
+	require.NoError(err)
+
+	require.Equal(branchName, rev.Branch)
+
+}
+
+func TestGetBranch(t *testing.T) {
+	require := require.New(t)
+
+	gitMeta, err := initGitRepo("ciux-git-getbranch-test-")
+	require.NoError(err)
+	repo := gitMeta.Repository
+	worktree, err := repo.Worktree()
+	require.NoError(err)
+
+	_, _, err = gitMeta.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
+	require.NoError(err)
+
+	branchName := "testbranch"
+	branch := plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", branchName))
+	err = worktree.Checkout(&git.CheckoutOptions{
+		Branch: branch,
+		Create: true,
+	})
+	require.NoError(err)
+
+	actualBranch, err := gitMeta.GetBranch()
+	require.NoError(err)
+	require.Equal(branchName, actualBranch)
 }
 
 func TestGitLsRemote(t *testing.T) {
@@ -171,11 +202,15 @@ func TestGitLsRemote(t *testing.T) {
 		return nil
 	})
 
-	gitRemMeta, err := GitLsRemote("file://" + worktree.Filesystem.Root())
+	gitRemoteMeta := Git{
+		Url: "file://" + worktree.Filesystem.Root(),
+	}
+	err = gitRemoteMeta.LsRemote()
+	require.NoError(err)
 	require.NoError(err)
 	// TODO improve this test
-	require.Contains(gitRemMeta.Branches, "master")
-	require.Contains(gitRemMeta.Branches, "testbranch")
+	require.Contains(gitRemoteMeta.RemoteBranches, "master")
+	require.Contains(gitRemoteMeta.RemoteBranches, "testbranch")
 }
 
 func TestHasBranch(t *testing.T) {
@@ -204,7 +239,10 @@ func TestHasBranch(t *testing.T) {
 	require.False(gitMeta.HasBranch("notexist"))
 
 	// Test for remote repository
-	gitRemoteMeta, err := GitLsRemote("file://" + worktree.Filesystem.Root())
+	gitRemoteMeta := Git{
+		Url: "file://" + worktree.Filesystem.Root(),
+	}
+	err = gitRemoteMeta.LsRemote()
 	require.NoError(err)
 	require.True(gitRemoteMeta.HasBranch(branchName))
 	require.False(gitRemoteMeta.HasBranch("notexist"))
@@ -250,7 +288,7 @@ func TestCloneWorkBranch(t *testing.T) {
 	require.Equal(branchName, cloneHead.Name().Short())
 
 	gitObj.GetRevision()
-	gitDescribeTest(require, gitOrigin, "v2.0.0", 0, commit2.String(), false)
+	getRevisionTest(require, gitOrigin, "v2.0.0", 0, commit2.String(), false)
 
 	os.RemoveAll(rootOrigin)
 	os.RemoveAll(cloneRoot)

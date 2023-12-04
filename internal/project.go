@@ -26,7 +26,7 @@ type Dependency struct {
 // NewProject creates a new Project struct
 // It reads the repository_path/.ciux.yaml configuration file
 // and retrieve the work branch for all dependencies
-func NewProject(repository_path string) Project {
+func NewProject(repository_path string, useBranch string) Project {
 	git, err := NewGit(repository_path)
 	FailOnError(err)
 	config, err := NewConfig(repository_path)
@@ -48,7 +48,7 @@ func NewProject(repository_path string) Project {
 		ImageRegistry: config.Registry,
 		Dependencies:  deps,
 	}
-	p.ScanRemoteDeps()
+	p.ScanRemoteDeps(useBranch)
 	return p
 }
 
@@ -67,21 +67,23 @@ func (p *Project) String() string {
 		return fmt.Sprintf("unable to get root of project repository: %v", err)
 	}
 	msg := fmt.Sprintf("Project %s\n  %s %+s\n", name, rootMain, revMain.GetVersion())
-	msg += "Dependencies:"
-	for _, dep := range p.Dependencies {
-		slog.Debug("Dependency", "url", dep.Git.Url, "branch", dep.Git.WorkBranch)
-		if dep.Package != "" {
-			msg += fmt.Sprintf("\n  %s %s", dep.Git.Url, dep.Package)
-		} else {
-			revDep, err := dep.Git.GetRevision()
-			if err != nil {
-				return msg + fmt.Sprintf("unable to describe git repository: %v", err)
+	if len(p.Dependencies) != 0 {
+		msg += "Dependencies:"
+		for _, dep := range p.Dependencies {
+			slog.Debug("Dependency", "url", dep.Git.Url, "branch", dep.Git.WorkBranch)
+			if dep.Package != "" {
+				msg += fmt.Sprintf("\n  %s %s", dep.Git.Url, dep.Package)
+			} else {
+				revDep, err := dep.Git.GetRevision()
+				if err != nil {
+					return msg + fmt.Sprintf("unable to describe git repository: %v", err)
+				}
+				rootDep, err := dep.Git.GetRoot()
+				if err != nil {
+					return msg + fmt.Sprintf("unable to get root of git repository: %v", err)
+				}
+				msg += fmt.Sprintf("\n  %s %s in-place: %t", rootDep, revDep.GetVersion(), dep.Git.InPlace)
 			}
-			rootDep, err := dep.Git.GetRoot()
-			if err != nil {
-				return msg + fmt.Sprintf("unable to get root of git repository: %v", err)
-			}
-			msg += fmt.Sprintf("\n  %s %s", rootDep, revDep.GetVersion())
 		}
 	}
 	return msg
@@ -109,7 +111,6 @@ func (p *Project) CheckImages() ([]name.Reference, error) {
 			if err != nil {
 				return foundImages, fmt.Errorf("unable to describe git repository: %v", err)
 			}
-			slog.Debug("Dep repo: %s, version: %+v", gitDep.Url, rev.GetVersion())
 			// TODO: Set image path at configuration time
 			depName, err := LastDir(gitDep.Url)
 			if err != nil {
@@ -132,9 +133,7 @@ func (p *Project) InstallGoModules() (string, error) {
 		if dep.Package != "" {
 			cmd := fmt.Sprintf("go install %s", dep.Package)
 			outstr, errstr, err := ExecCmd(cmd, false, false)
-			if log.IsDebugEnabled() {
-				slog.Debug("Command output", "stdout", outstr, "stderr", errstr)
-			}
+			slog.Debug("Install package", "cmd", cmd, "out", outstr, "err", errstr)
 			if err != nil {
 				return msg, fmt.Errorf("unable to install go module %s: %v", dep.Package, err)
 			}
@@ -159,26 +158,39 @@ func (p *Project) InstallGoModules() (string, error) {
 // ScanRemoteDeps retrieves the work branch for each dependency
 // It is the same branch as the main repository if it exists
 // or the default branch of the dependency repository otherwise
-func (project *Project) ScanRemoteDeps() error {
-	gitMain := project.GitMain
-	revMain, err := gitMain.GetRevision()
-	if err != nil {
-		return fmt.Errorf("unable to describe git repository: %v", err)
-	}
-	for _, dep := range project.Dependencies {
-		gitDep := &dep.Git
-		hasBranch, err := gitDep.HasBranch(revMain.Branch)
+func (project *Project) ScanRemoteDeps(useBranch string) error {
+	var branch string
+	var err error
+	if useBranch == "" {
+		branch, err = project.GitMain.GetBranch()
 		if err != nil {
-			return fmt.Errorf("unable to check branch existence for dependency repository %s: %v", gitDep.Url, err)
+			return fmt.Errorf("unable to get branch for project repository: %v", err)
 		}
-		if hasBranch {
-			gitDep.WorkBranch = revMain.Branch
-		} else {
-			main, err := gitDep.MainBranch()
+	} else {
+		branch = useBranch
+	}
+	log.Debugf("%s\n", branch)
+
+	for _, dep := range project.Dependencies {
+		if dep.Clone {
+			gitDep := &dep.Git
+			err = gitDep.LsRemote()
 			if err != nil {
-				return fmt.Errorf("unable to get main branch for project repository %s: %v", gitMain.Url, err)
+				return fmt.Errorf("unable to ls-remote for dependency repository %s: %v", gitDep.Url, err)
 			}
-			gitDep.WorkBranch = main
+			hasBranch, err := gitDep.HasBranch(branch)
+			if err != nil {
+				return fmt.Errorf("unable to check branch existence for dependency repository %s: %v", gitDep.Url, err)
+			}
+			if hasBranch {
+				gitDep.WorkBranch = branch
+			} else {
+				main, err := gitDep.MainBranch()
+				if err != nil {
+					return fmt.Errorf("unable to get main branch for project repository %s: %v", project.GitMain.Url, err)
+				}
+				gitDep.WorkBranch = main
+			}
 		}
 	}
 	if log.IsDebugEnabled() {

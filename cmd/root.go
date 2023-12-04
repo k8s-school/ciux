@@ -69,5 +69,5 @@ func init() {
 
 // setUpLogs set the log output ans the log level
 func initLogger() {
-	log.SetLogLevel(verbosity)
+	log.Init(verbosity)
 }

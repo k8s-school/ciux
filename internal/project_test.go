@@ -132,7 +132,7 @@ func TestScanRemoteDeps(t *testing.T) {
 	require.NoError(err)
 	defer os.RemoveAll(depRoot)
 
-	project := NewProject(root)
+	project := NewProject(root, "")
 
 	// Assert that the dependency has the correct branch information
 	require.Equal("master", project.Dependencies[0].Git.WorkBranch)
@@ -142,7 +142,7 @@ func TestScanRemoteDeps(t *testing.T) {
 	err = localGit.CreateBranch(branchName)
 	require.NoError(err)
 
-	err = project.ScanRemoteDeps()
+	err = project.ScanRemoteDeps("")
 	require.NoError(err)
 	require.Equal("master", project.Dependencies[0].Git.WorkBranch)
 
@@ -150,7 +150,7 @@ func TestScanRemoteDeps(t *testing.T) {
 	err = remoteGitDeps[0].CreateBranch(branchName)
 	require.NoError(err)
 
-	err = project.ScanRemoteDeps()
+	err = project.ScanRemoteDeps("")
 	require.NoError(err)
 	require.Equal("testbranch", project.Dependencies[0].Git.WorkBranch)
 
@@ -163,7 +163,7 @@ func TestWriteOutConfig(t *testing.T) {
 	root, err := localGit.GetRoot()
 	require.NoError(err)
 
-	project := NewProject(root)
+	project := NewProject(root, "")
 	tmpDir, err := os.MkdirTemp("", "ciux-writeoutconfig-test-projectdeps-")
 	require.NoError(err)
 	project.RetrieveDepsSources(tmpDir)

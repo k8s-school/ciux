@@ -7,6 +7,7 @@ package log // import "github.com/go-daq/tdaq/log"
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 )
@@ -22,7 +23,7 @@ const (
 	LvlError   Level = 20  // LvlError defines the ERR verbosity level
 )
 
-func SetLogLevel(verbosity int) {
+func Init(verbosity int) {
 	var lvl slog.Leveler
 
 	switch verbosity {
@@ -37,7 +38,8 @@ func SetLogLevel(verbosity int) {
 	}
 
 	opts := &slog.HandlerOptions{
-		Level: lvl,
+		AddSource: true,
+		Level:     lvl,
 	}
 
 	handler := slog.NewTextHandler(os.Stdout, opts)
@@ -48,4 +50,8 @@ func SetLogLevel(verbosity int) {
 func IsDebugEnabled() bool {
 	h := slog.Default().Handler()
 	return h.Enabled(context.Background(), slog.LevelDebug)
+}
+
+func Debugf(format string, args ...interface{}) {
+	fmt.Printf("DEBUGXXX "+format, args...)
 }

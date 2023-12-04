@@ -18,12 +18,12 @@ import (
 )
 
 type Git struct {
-	Tags       []string
-	Branches   []string
-	Url        string
-	Repository *git.Repository
-	WorkBranch string
-	Author     string
+	InPlace        bool
+	RemoteTags     []string
+	RemoteBranches []string
+	Url            string
+	Repository     *git.Repository
+	WorkBranch     string
 }
 
 // GitSemverTagMap ...
@@ -165,7 +165,8 @@ func (gitObj *Git) CloneOrOpen(destBasePath string, singleBranch bool) error {
 	}
 	repository, err := git.PlainClone(destPath, false, options)
 	if err == git.ErrRepositoryAlreadyExists {
-		slog.Warn("not cloning dependency repository %s, working with existing one: %s", gitObj.Url, destPath)
+		gitObj.InPlace = true
+		slog.Warn("In place repository", "url", gitObj.Url, "path", destPath)
 		repository, err = git.PlainOpen(destPath)
 		if err != nil {
 			return fmt.Errorf("unable to open git repository %s: %v", gitObj.Url, err)
@@ -177,14 +178,13 @@ func (gitObj *Git) CloneOrOpen(destBasePath string, singleBranch bool) error {
 	return nil
 }
 
-// GitLsRemote returns branches and tag of a remote repository
+// LsRemote returns branches and tag of a remote repository
 // https://github.com/go-git/go-git/blob/master/_examples/ls-remote/main.go
-func GitLsRemote(url string) (repo *Git, err error) {
-	repo = &Git{Url: url}
+func (gitObj *Git) LsRemote() error {
 
 	remote := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
 		Name: "origin",
-		URLs: []string{repo.Url},
+		URLs: []string{gitObj.Url},
 	})
 
 	refs, err := remote.List(&git.ListOptions{
@@ -192,7 +192,7 @@ func GitLsRemote(url string) (repo *Git, err error) {
 		PeelingOption: git.AppendPeeled,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("unable to list remote references: %v", err)
+		return fmt.Errorf("unable to list remote references: %v", err)
 	}
 
 	// Find annotated tags
@@ -206,13 +206,13 @@ func GitLsRemote(url string) (repo *Git, err error) {
 
 	for _, ref := range refs {
 		if ref.Name().IsBranch() {
-			repo.Branches = append(repo.Branches, ref.Name().Short())
+			gitObj.RemoteBranches = append(gitObj.RemoteBranches, ref.Name().Short())
 		}
 		if ref.Name().IsTag() {
-			repo.Tags = append(repo.Tags, ref.Name().Short())
+			gitObj.RemoteTags = append(gitObj.RemoteTags, ref.Name().Short())
 		}
 	}
-	return repo, nil
+	return nil
 }
 
 func (gitObj *Git) isRemote() bool {
@@ -259,7 +259,7 @@ func (gitObj *Git) HasBranch(branchname string) (bool, error) {
 			return false, fmt.Errorf("unable to loop on branches: %v", err)
 		}
 	}
-
+	slog.Debug("Branch search", "url", gitObj.Url, "branchname", branchname, "found", found)
 	return found, nil
 }
 
@@ -340,6 +340,14 @@ func (g *Git) GetRevision() (*GitRevision, error) {
 	return &rev, nil
 }
 
+func (g *Git) GetBranch() (string, error) {
+	head, err := g.Repository.Head()
+	if err != nil {
+		return "", fmt.Errorf("unable to find head: %v", err)
+	}
+	return head.Name().Short(), nil
+}
+
 func NewGit(dir string) (Git, error) {
 	repo := Git{}
 	r, err := git.PlainOpen(dir)
@@ -387,9 +395,8 @@ func (git *Git) GoInstall() error {
 
 	cmd := fmt.Sprintf("go install -C %s", root)
 	outstr, errstr, err := ExecCmd(cmd, false, false)
-	if log.IsDebugEnabled() {
-		slog.Debug("go install", "cmd", cmd, "out", outstr, "err", errstr)
-	}
+	slog.Debug("Install from source", "cmd", cmd, "out", outstr, "err", errstr)
+
 	if err != nil {
 		return fmt.Errorf("unable to install go modules for git repository %s: %v", git.Url, err)
 	}
