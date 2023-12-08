@@ -1,3 +1,6 @@
+* TODO add ciux kindload command?
+* TODO add parameter to check FROM image existence in .ciux (for k8s-spark-py)
+* TODO Add command to refresh ciux.sh, required prior to fink-broker/build.sh
 * TODO Add option to generate version for main project (ciux version path), use to compute
 image name, or "ciux get imagename path"
 * TODO Improve message management for go modules 

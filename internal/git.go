@@ -131,6 +131,28 @@ func (gitObj *Git) GetEnVarPrefix() (string, error) {
 	return varName, nil
 }
 
+func (gitObj *Git) OpenIfExists(destBasePath string) error {
+	name, err := gitObj.GetName()
+	if err != nil {
+		return fmt.Errorf("unable to get name from url %s: %v", gitObj.Url, err)
+	}
+	destPath := filepath.Join(destBasePath, name)
+	// Check that destPath is a directory
+
+	_, err = os.Stat(destPath)
+	var repository *git.Repository
+	if !os.IsNotExist(err) {
+		repository, err = git.PlainOpen(destPath)
+		if err != nil {
+			return fmt.Errorf("unable to open git repository %s: %v", gitObj.Url, err)
+		}
+	} else {
+		slog.Debug("Repository does not exist locally", "url", gitObj.Url, "path", destPath)
+	}
+	gitObj.Repository = repository
+	return nil
+}
+
 func (gitObj *Git) CloneOrOpen(destBasePath string, singleBranch bool) error {
 	name, err := gitObj.GetName()
 	if err != nil {
@@ -163,6 +185,7 @@ func (gitObj *Git) CloneOrOpen(destBasePath string, singleBranch bool) error {
 		SingleBranch:  singleBranch,
 		Progress:      progress,
 	}
+	// TODO check if repository already exists, then try to open it else clone it
 	repository, err := git.PlainClone(destPath, false, options)
 	if err == git.ErrRepositoryAlreadyExists {
 		gitObj.InPlace = true

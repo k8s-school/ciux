@@ -10,18 +10,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var branch string
-var itest bool
+// refreshCmd represents the refresh command
+var refreshCmd = &cobra.Command{
+	Use:   "refresh",
+	Short: "A brief description of your command",
+	Long: `A longer description that spans multiple lines and likely contains examples
+and usage of using your command. For example:
 
-// igniteCmd represents the revision command
-var igniteCmd = &cobra.Command{
-	Use:     "ignite repository_path",
-	Aliases: []string{"ig", "ign"},
-	Short:   "Prepare integration test",
-	Long: `Retrieve current revision of the repository and clone all dependencies in the correct revision.
-	Check if dependencies container images are available.
-	Use repository_path/.ciux.yaml configuration file to retrieve dependencies.`,
-	Args: cobra.MinimumNArgs(1),
+Cobra is a CLI library for Go that empowers applications.
+This application is a tool to generate the needed files
+to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		repositoryPath := args[0]
 		project := internal.NewProject(repositoryPath, branch)
@@ -46,10 +44,5 @@ var igniteCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(igniteCmd)
-
-	// Here you will define your flags and configuration settings.
-	igniteCmd.Flags().BoolVarP(&itest, "itest", "i", false, "install dependencies for runnning integration tests")
-
-	igniteCmd.PersistentFlags().StringVarP(&branch, "branch", "b", "", "branch for the project, retrieved from git if not specified")
+	igniteCmd.AddCommand(refreshCmd)
 }

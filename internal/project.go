@@ -102,6 +102,18 @@ func (p *Project) RetrieveDepsSources(basePath string) error {
 	return nil
 }
 
+func (p *Project) AddInPlaceDepsSources(basePath string) error {
+	for i, dep := range p.Dependencies {
+		if dep.Clone {
+			err := p.Dependencies[i].Git.OpenIfExists(basePath)
+			if err != nil {
+				return fmt.Errorf("unable to set git repository %s: %v", p.Dependencies[i].Git.Url, err)
+			}
+		}
+	}
+	return nil
+}
+
 func (p *Project) CheckImages() ([]name.Reference, error) {
 	foundImages := []name.Reference{}
 	for i, dep := range p.Dependencies {
