@@ -1,3 +1,4 @@
+* TODO FIX bug in "ciux ignite ." related to deps base path
 * TODO add ciux kindload command?
 * TODO add parameter to check FROM image existence in .ciux (for k8s-spark-py)
 * TODO Add command to refresh ciux.sh, required prior to fink-broker/build.sh
