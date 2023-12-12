@@ -28,3 +28,20 @@ func TestDescImage(t *testing.T) {
 	assert.Error(err)
 	assert.Nil(ref)
 }
+func TestGetImgEnVarPrefix(t *testing.T) {
+	assert := assert.New(t)
+
+	image := "docker.io/library/alpine:3.18.3"
+	expectedPrefix := "LIBRARY_ALPINE"
+
+	prefix, err := GetImageEnVarPrefix(image)
+	assert.NoError(err)
+	assert.Equal(expectedPrefix, prefix)
+
+	image = "gitlab-registry.in2p3.fr/astrolabsoftware/fink/fink-broker:latest"
+	expectedPrefix = "ASTROLABSOFTWARE_FINK_FINK_BROKER"
+
+	prefix, err = GetImageEnVarPrefix(image)
+	assert.NoError(err)
+	assert.Equal(expectedPrefix, prefix)
+}

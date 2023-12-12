@@ -1,6 +1,0 @@
----
-apiVersion: v1alpha
-checkout:
-  - repository: https://github.com/astrolabsoftware/fink-alert-simulator.git
-    directory:
-    branch:

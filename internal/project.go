@@ -11,14 +11,15 @@ import (
 )
 
 type Project struct {
-	GitMain       Git
+	GitMain       *Git
 	ImageRegistry string
 	Dependencies  []*Dependency
 }
 
 type Dependency struct {
 	Clone   bool
-	Git     Git
+	Git     *Git
+	Image   string
 	Pull    bool
 	Package string
 }
@@ -34,13 +35,26 @@ func NewProject(repository_path string, useBranch string) Project {
 
 	deps := []*Dependency{}
 	for _, depConfig := range config.Dependencies {
-		dep := Dependency{
-			Clone:   depConfig.Clone,
-			Git:     Git{Url: depConfig.Url},
-			Pull:    depConfig.Pull,
-			Package: depConfig.Package,
+		var dep *Dependency
+		if depConfig.Package != "" {
+			dep = &Dependency{
+				Package: depConfig.Package,
+			}
+		} else if depConfig.Image != "" {
+			dep = &Dependency{
+				Image: depConfig.Image,
+			}
+		} else {
+			dep = &Dependency{
+				Clone: depConfig.Clone,
+				Pull:  depConfig.Pull,
+				Git: &Git{
+					Url: depConfig.Url,
+				},
+			}
 		}
-		deps = append(deps, &dep)
+
+		deps = append(deps, dep)
 	}
 
 	p := Project{
@@ -70,10 +84,11 @@ func (p *Project) String() string {
 	if len(p.Dependencies) != 0 {
 		msg += "Dependencies:"
 		for _, dep := range p.Dependencies {
-			slog.Debug("Dependency", "url", dep.Git.Url, "branch", dep.Git.WorkBranch)
+
 			if dep.Package != "" {
-				msg += fmt.Sprintf("\n  %s %s", dep.Git.Url, dep.Package)
-			} else {
+				msg += fmt.Sprintf("\n  Package: %s", dep.Package)
+			} else if dep.Git != nil {
+				slog.Debug("Dependency", "url", dep.Git.Url, "branch", dep.Git.WorkBranch)
 				revDep, err := dep.Git.GetRevision()
 				if err != nil {
 					return msg + fmt.Sprintf("unable to describe git repository: %v", err)
@@ -83,6 +98,8 @@ func (p *Project) String() string {
 					return msg + fmt.Sprintf("unable to get root of git repository: %v", err)
 				}
 				msg += fmt.Sprintf("\n  %s %s in-place: %t", rootDep, revDep.GetVersion(), dep.Git.InPlace)
+			} else if dep.Image != "" {
+				msg += fmt.Sprintf("\n  Image: %s", dep.Image)
 			}
 		}
 	}
@@ -134,6 +151,12 @@ func (p *Project) CheckImages() ([]name.Reference, error) {
 				return foundImages, fmt.Errorf("unable to check image existence: %v, %v", err, ref)
 			}
 			foundImages = append(foundImages, ref)
+		} else if dep.Image != "" {
+			_, ref, err := DescImage(dep.Image)
+			if err != nil {
+				return foundImages, fmt.Errorf("unable to check image existence: %v, %v", err, ref)
+			}
+			foundImages = append(foundImages, ref)
 		}
 	}
 	return foundImages, nil
@@ -181,33 +204,33 @@ func (project *Project) ScanRemoteDeps(useBranch string) error {
 	} else {
 		branch = useBranch
 	}
-	log.Debugf("%s\n", branch)
 
 	for _, dep := range project.Dependencies {
 		if dep.Clone {
-			gitDep := &dep.Git
-			err = gitDep.LsRemote()
+			err = dep.Git.LsRemote()
 			if err != nil {
-				return fmt.Errorf("unable to ls-remote for dependency repository %s: %v", gitDep.Url, err)
+				return fmt.Errorf("unable to ls-remote for dependency repository %s: %v", dep.Git.Url, err)
 			}
-			hasBranch, err := gitDep.HasBranch(branch)
+			hasBranch, err := dep.Git.HasBranch(branch)
 			if err != nil {
-				return fmt.Errorf("unable to check branch existence for dependency repository %s: %v", gitDep.Url, err)
+				return fmt.Errorf("unable to check branch existence for dependency repository %s: %v", dep.Git.Url, err)
 			}
 			if hasBranch {
-				gitDep.WorkBranch = branch
+				dep.Git.WorkBranch = branch
 			} else {
-				main, err := gitDep.MainBranch()
+				main, err := dep.Git.MainBranch()
 				if err != nil {
 					return fmt.Errorf("unable to get main branch for project repository %s: %v", project.GitMain.Url, err)
 				}
-				gitDep.WorkBranch = main
+				dep.Git.WorkBranch = main
 			}
 		}
 	}
 	if log.IsDebugEnabled() {
 		for _, dep := range project.Dependencies {
-			slog.Debug("Dependency", "url", dep.Git.Url, "branch", dep.Git.WorkBranch)
+			if dep.Git != nil {
+				slog.Debug("Dependency", "url", dep.Git.Url, "branch", dep.Git.WorkBranch)
+			}
 		}
 	}
 	return nil
@@ -236,9 +259,14 @@ func (p *Project) WriteOutConfig() (string, error) {
 	}
 	defer f.Close()
 
-	gitDeps := []Git{}
+	gitDeps := []*Git{}
+	imageDeps := []string{}
 	for _, dep := range p.Dependencies {
-		gitDeps = append(gitDeps, dep.Git)
+		if dep.Git != nil {
+			gitDeps = append(gitDeps, dep.Git)
+		} else if dep.Image != "" {
+			imageDeps = append(imageDeps, dep.Image)
+		}
 	}
 
 	gitRepos := append(gitDeps, p.GitMain)
@@ -248,7 +276,6 @@ func (p *Project) WriteOutConfig() (string, error) {
 			if err != nil {
 				return msg, fmt.Errorf("unable to get environment variable name for git repository %v: %v", gitObj, err)
 			}
-
 			root, err := gitObj.GetRoot()
 			if err != nil {
 				return msg, fmt.Errorf("unable to get root of git repository: %v", err)
@@ -272,12 +299,25 @@ func (p *Project) WriteOutConfig() (string, error) {
 
 		}
 	}
+
+	for _, image := range imageDeps {
+		varName, err := GetImageEnVarPrefix(image)
+		if err != nil {
+			return msg, fmt.Errorf("unable to get environment variable name for image %s: %v", image, err)
+		}
+		imageEnv := fmt.Sprintf("export %s_IMAGE=%s\n", varName, image)
+		_, err = f.WriteString(imageEnv)
+		if err != nil {
+			return msg, fmt.Errorf("unable to write variable %s_IMAGE to file %s: %v", varName, ciuxConfigFile, err)
+		}
+	}
+
 	msg = fmt.Sprintf("Configuration file %s written", ciuxConfigFile)
 	return msg, nil
 }
 
-func (p *Project) GetGits() []Git {
-	gits := []Git{p.GitMain}
+func (p *Project) GetGits() []*Git {
+	gits := []*Git{p.GitMain}
 	for _, dep := range p.Dependencies {
 		gits = append(gits, dep.Git)
 	}

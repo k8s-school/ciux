@@ -48,6 +48,7 @@ func NewConfig(repositoryPath string) (ProjConfig, error) {
 type DepConfig struct {
 	Url     string `mapstructure:"url" default:""`
 	Clone   bool   `mapstructure:"clone" default:"false"`
+	Image   string `mapstructure:"image" default:""`
 	Pull    bool   `mapstructure:"pull" default:"false"`
 	Package string `mapstructure:"package" default:""`
 }

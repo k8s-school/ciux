@@ -371,14 +371,14 @@ func (g *Git) GetBranch() (string, error) {
 	return head.Name().Short(), nil
 }
 
-func NewGit(dir string) (Git, error) {
+func NewGit(dir string) (*Git, error) {
 	repo := Git{}
 	r, err := git.PlainOpen(dir)
 	if err != nil {
-		return repo, fmt.Errorf("unable to open git repository: %v", err)
+		return &repo, fmt.Errorf("unable to open git repository: %v", err)
 	}
 	repo.Repository = r
-	return repo, nil
+	return &repo, nil
 }
 
 func (git *Git) GetRoot() (string, error) {

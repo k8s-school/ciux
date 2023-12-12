@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -26,4 +27,15 @@ func DescImage(r string) (v1.Image, name.Reference, error) {
 		return nil, nil, fmt.Errorf("reading image %q: %w", ref, err)
 	}
 	return img, ref, nil
+}
+
+func GetImageEnVarPrefix(image string) (string, error) {
+	ref, err := name.ParseReference(image)
+	if err != nil {
+		return "", fmt.Errorf("unable to parse image name %s: %v", image, err)
+	}
+	repStr := ref.Context().RepositoryStr()
+	var replacer = strings.NewReplacer("/", "_", "-", "_")
+	prefix := strings.ToUpper(replacer.Replace(repStr))
+	return prefix, nil
 }
