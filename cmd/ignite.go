@@ -6,6 +6,7 @@ package cmd
 import (
 	"path/filepath"
 
+	"github.com/k8s-school/ciux/cmd/util"
 	"github.com/k8s-school/ciux/internal"
 	"github.com/spf13/cobra"
 )
@@ -21,10 +22,11 @@ var igniteCmd = &cobra.Command{
 	Long: `Retrieve current revision of the repository and clone all dependencies in the correct revision.
 	Check if dependencies container images are available.
 	Use repository_path/.ciux.yaml configuration file to retrieve dependencies.`,
-	Args: cobra.MinimumNArgs(1),
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		repositoryPath := args[0]
-		project := internal.NewProject(repositoryPath, branch)
+		project, err := internal.NewProject(repositoryPath, branch, labelSelector)
+		internal.FailOnError(err)
 		depsBasePath := filepath.Dir(repositoryPath)
 		// Clone dependencies directories and checkout the correct revision
 		// Check container images exist
@@ -51,5 +53,7 @@ func init() {
 	// Here you will define your flags and configuration settings.
 	igniteCmd.Flags().BoolVarP(&itest, "itest", "i", false, "install dependencies for runnning integration tests")
 
-	igniteCmd.PersistentFlags().StringVarP(&branch, "branch", "b", "", "branch for the project, retrieved from git if not specified")
+	igniteCmd.PersistentFlags().StringVarP(&branch, "branch", "b", "", "current branch for the project, retrieved from git if not specified")
+
+	util.AddLabelSelectorFlagVar(igniteCmd, &labelSelector)
 }

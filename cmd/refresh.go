@@ -21,9 +21,10 @@ This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		repositoryPath := args[0]
-		project := internal.NewProject(repositoryPath, branch)
+		project, err := internal.NewProject(repositoryPath, branch, "")
+		internal.FailOnError(err)
 		depsBasePath := filepath.Dir(repositoryPath)
-		err := project.AddInPlaceDepsSources(depsBasePath)
+		err = project.AddInPlaceDepsSources(depsBasePath)
 		internal.FailOnError(err)
 
 		msg, err := project.WriteOutConfig()

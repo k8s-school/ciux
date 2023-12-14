@@ -2,11 +2,10 @@ package internal
 
 import (
 	"log/slog"
-	"os"
 
 	"github.com/mitchellh/mapstructure"
-	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"k8s.io/apimachinery/pkg/labels"
 
 	defaults "github.com/mcuadros/go-defaults"
 )
@@ -14,15 +13,9 @@ import (
 // NewConfig reads ciux config file to buld a Config struct
 // it uses repositoryPath if not null or current directory
 func NewConfig(repositoryPath string) (ProjConfig, error) {
-	var configPath string
+	var configPath = repositoryPath
 	config := new(ProjConfig)
 	var err error
-	if len(repositoryPath) == 0 {
-		configPath, err = os.Getwd()
-		cobra.CheckErr(err)
-	} else {
-		configPath = repositoryPath
-	}
 
 	newviper := viper.New()
 	newviper.AddConfigPath(configPath)
@@ -36,7 +29,6 @@ func NewConfig(repositoryPath string) (ProjConfig, error) {
 	slog.Debug("Ciux config file", "file", newviper.ConfigFileUsed())
 
 	slog.Debug("Set defaults")
-
 	defaults.SetDefaults(config)
 	err = mapstructure.Decode(newviper.AllSettings(), config)
 	if err != nil {
@@ -46,11 +38,12 @@ func NewConfig(repositoryPath string) (ProjConfig, error) {
 }
 
 type DepConfig struct {
-	Url     string `mapstructure:"url" default:""`
-	Clone   bool   `mapstructure:"clone" default:"false"`
-	Image   string `mapstructure:"image" default:""`
-	Pull    bool   `mapstructure:"pull" default:"false"`
-	Package string `mapstructure:"package" default:""`
+	Url     string     `mapstructure:"url" default:""`
+	Clone   bool       `mapstructure:"clone" default:"false"`
+	Image   string     `mapstructure:"image" default:""`
+	Pull    bool       `mapstructure:"pull" default:"false"`
+	Package string     `mapstructure:"package" default:""`
+	Labels  labels.Set `mapstructure:"labels"`
 }
 
 type ProjConfig struct {

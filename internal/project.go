@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/k8s-school/ciux/log"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 type Project struct {
@@ -16,22 +17,26 @@ type Project struct {
 	Dependencies  []*Dependency
 }
 
-type Dependency struct {
-	Clone   bool
-	Git     *Git
-	Image   string
-	Pull    bool
-	Package string
-}
-
 // NewProject creates a new Project struct
 // It reads the repository_path/.ciux.yaml configuration file
 // and retrieve the work branch for all dependencies
-func NewProject(repository_path string, useBranch string) Project {
+func NewProject(repository_path string, useBranch string, labelSelector string) (Project, error) {
 	git, err := NewGit(repository_path)
-	FailOnError(err)
+	if err != nil {
+		return Project{}, fmt.Errorf("unable to create git repository: %v", err)
+	}
 	config, err := NewConfig(repository_path)
-	FailOnError(err)
+	if err != nil {
+		return Project{}, fmt.Errorf("unable to read configuration file: %v", err)
+	}
+
+	selectors := labels.Everything()
+	if len(labelSelector) > 0 {
+		selectors, err = labels.Parse(labelSelector)
+		if err != nil {
+			return Project{}, fmt.Errorf("unable to parse label selector: %v", err)
+		}
+	}
 
 	deps := []*Dependency{}
 	for _, depConfig := range config.Dependencies {
@@ -53,8 +58,11 @@ func NewProject(repository_path string, useBranch string) Project {
 				},
 			}
 		}
-
-		deps = append(deps, dep)
+		if selectors.Matches(depConfig.Labels) {
+			deps = append(deps, dep)
+		} else {
+			slog.Debug("Dependency not selected", "labels", depConfig.Labels, "dep", dep)
+		}
 	}
 
 	p := Project{
@@ -63,7 +71,7 @@ func NewProject(repository_path string, useBranch string) Project {
 		Dependencies:  deps,
 	}
 	p.ScanRemoteDeps(useBranch)
-	return p
+	return p, nil
 }
 
 func (p *Project) String() string {
@@ -319,7 +327,9 @@ func (p *Project) WriteOutConfig() (string, error) {
 func (p *Project) GetGits() []*Git {
 	gits := []*Git{p.GitMain}
 	for _, dep := range p.Dependencies {
-		gits = append(gits, dep.Git)
+		if dep.Git != nil {
+			gits = append(gits, dep.Git)
+		}
 	}
 	return gits
 }

@@ -1,8 +1,11 @@
 registry: test-registry.io
 dependencies:
-  - url: file:///tmp/ciux-dep-test 
+  - url: file:///tmp/ciux-dep-test
     # If true repository will be locally cloned
     clone: true
     # If true, container image will be pulled
     pull: true
+    labels:
+      key1: value1
+      key2: value2
 

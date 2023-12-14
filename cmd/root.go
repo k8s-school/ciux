@@ -24,9 +24,10 @@ import (
 )
 
 var (
-	depsPath  string
-	dryRun    bool
-	verbosity int
+	depsPath      string
+	dryRun        bool
+	verbosity     int
+	labelSelector string
 )
 
 // rootCmd represents the base command when called without any subcommands
