@@ -59,9 +59,8 @@ func NewProject(repository_path string, useBranch string, labelSelector string) 
 			}
 		}
 		if selectors.Matches(depConfig.Labels) {
+			slog.Debug("Dependency selected", "labels", depConfig.Labels, "dep", dep)
 			deps = append(deps, dep)
-		} else {
-			slog.Debug("Dependency not selected", "labels", depConfig.Labels, "dep", dep)
 		}
 	}
 
@@ -95,6 +94,8 @@ func (p *Project) String() string {
 
 			if dep.Package != "" {
 				msg += fmt.Sprintf("\n  Package: %s", dep.Package)
+			} else if dep.Image != "" {
+				msg += fmt.Sprintf("\n  Image: %s", dep.Image)
 			} else if dep.Git != nil {
 				slog.Debug("Dependency", "url", dep.Git.Url, "branch", dep.Git.WorkBranch)
 				revDep, err := dep.Git.GetRevision()
@@ -105,9 +106,10 @@ func (p *Project) String() string {
 				if err != nil {
 					return msg + fmt.Sprintf("unable to get root of git repository: %v", err)
 				}
-				msg += fmt.Sprintf("\n  %s %s in-place: %t", rootDep, revDep.GetVersion(), dep.Git.InPlace)
-			} else if dep.Image != "" {
-				msg += fmt.Sprintf("\n  Image: %s", dep.Image)
+				msg += fmt.Sprintf("\n  %s %s in-place=%t", rootDep, revDep.GetVersion(), dep.Git.InPlace)
+				if dep.Pull {
+					msg += " pull=true"
+				}
 			}
 		}
 	}
@@ -143,17 +145,10 @@ func (p *Project) CheckImages() ([]name.Reference, error) {
 	foundImages := []name.Reference{}
 	for i, dep := range p.Dependencies {
 		if dep.Pull {
-			gitDep := p.Dependencies[i].Git
-			rev, err := gitDep.GetRevision()
+			imageUrl, err := dep.GetImageName(p.ImageRegistry)
 			if err != nil {
-				return foundImages, fmt.Errorf("unable to describe git repository: %v", err)
+				return foundImages, fmt.Errorf("unable to get image name for git repository %s: %v", p.Dependencies[i].Git.Url, err)
 			}
-			// TODO: Set image path at configuration time
-			depName, err := LastDir(gitDep.Url)
-			if err != nil {
-				return foundImages, fmt.Errorf("unable to get last directory of git repository: %v", err)
-			}
-			imageUrl := fmt.Sprintf("%s/%s:%s", p.ImageRegistry, depName, rev.GetVersion())
 			_, ref, err := DescImage(imageUrl)
 			if err != nil {
 				return foundImages, fmt.Errorf("unable to check image existence: %v, %v", err, ref)

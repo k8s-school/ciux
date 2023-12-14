@@ -306,6 +306,9 @@ func TestMainBranch(t *testing.T) {
 	require.NoError(err)
 	require.Equal("master", mainBranch)
 
+	root, err := gitLocal.GetRoot()
+	require.NoError(err)
+
 	tests := []struct {
 		name     string
 		url      string
@@ -314,7 +317,7 @@ func TestMainBranch(t *testing.T) {
 	}{
 		{
 			name:     "master",
-			url:      "https://github.com/astrolabsoftware/fink-alert-simulator",
+			url:      "file://" + root,
 			clone:    true,
 			expected: "master",
 		},
@@ -408,12 +411,29 @@ func TestIsDirty(t *testing.T) {
 func TestGoInstall(t *testing.T) {
 	require := require.New(t)
 
-	git := Git{Url: "https://github.com/k8s-school/ciux"}
-
-	err := git.CloneOrOpen("", false)
+	git, err := initGitRepo("ciux-git-go-install-test-")
+	require.NoError(err)
+	root, err := git.GetRoot()
 	require.NoError(err)
 
+	cmd := fmt.Sprintf("go mod init -C %s ciux-git-go-install-test/ciux-fake", root)
+	_, _, err = ExecCmd(cmd, false, false)
+	require.NoError(err)
+
+	// Create main.go in root
+	fname := "main.go"
+	f, err := os.Create(filepath.Join(root, fname))
+	require.NoError(err)
+	_, err = f.WriteString("package main\n\nfunc main() {\n\tprintln(\"Hello world\")\n}\n")
+	require.NoError(err)
+	f.Close()
+
 	err = git.GoInstall()
+	require.NoError(err)
+
+	// Clean up
+	cmd = "rm $(which ciux-fake)"
+	_, _, err = ExecCmd(cmd, false, false)
 	require.NoError(err)
 
 	// TODO: Add assertions to verify the behavior of the GoInstall function

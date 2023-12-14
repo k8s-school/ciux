@@ -28,19 +28,24 @@ var igniteCmd = &cobra.Command{
 		project, err := internal.NewProject(repositoryPath, branch, labelSelector)
 		internal.FailOnError(err)
 		depsBasePath := filepath.Dir(repositoryPath)
-		// Clone dependencies directories and checkout the correct revision
-		// Check container images exist
-		if itest {
-			err := project.RetrieveDepsSources(depsBasePath)
-			internal.FailOnError(err)
-			goMsg, err := project.InstallGoModules()
-			internal.FailOnError(err)
-			internal.Infof("%s", project.String())
-			internal.Infof("Go modules installed:\n%s", goMsg)
-			images, err := project.CheckImages()
-			internal.FailOnError(err)
-			internal.Infof("Images: %v", images)
-		}
+
+		// Retrieve dependencies sources
+		err = project.RetrieveDepsSources(depsBasePath)
+		internal.FailOnError(err)
+
+		// Install dependencies Go modules
+		goMsg, err := project.InstallGoModules()
+		internal.FailOnError(err)
+		internal.Infof("Go modules installed:\n%s", goMsg)
+
+		// Check if dependencies container images are available
+		images, err := project.CheckImages()
+		internal.FailOnError(err)
+		internal.Infof("Available Images:\n%s", images)
+
+		internal.Infof("%s", project.String())
+
+		// Write project configuration file
 		msg, err := project.WriteOutConfig()
 		internal.FailOnError(err)
 		internal.Infof("%s", msg)
