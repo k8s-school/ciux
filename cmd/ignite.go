@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"path/filepath"
+	"strings"
 
 	"github.com/k8s-school/ciux/cmd/util"
 	"github.com/k8s-school/ciux/internal"
@@ -34,16 +35,26 @@ var igniteCmd = &cobra.Command{
 		internal.FailOnError(err)
 
 		// Install dependencies Go modules
+		// TODO return go modules installed and implement a print function
 		goMsg, err := project.InstallGoModules()
 		internal.FailOnError(err)
-		internal.Infof("Go modules installed:\n%s", goMsg)
 
 		// Check if dependencies container images are available
 		images, err := project.CheckImages()
 		internal.FailOnError(err)
-		internal.Infof("Available Images:\n%s", images)
 
 		internal.Infof("%s", project.String())
+
+		goMsg = strings.TrimRight(goMsg, "\n")
+		internal.Infof("Go modules installed:\n%s", goMsg)
+
+		// Convert image to a printable string
+		var imgMsg string
+		for _, image := range images {
+			imgMsg += "  " + image.Name() + "\n"
+		}
+		imgMsg = strings.TrimRight(imgMsg, "\n")
+		internal.Infof("Available Images:\n%s", imgMsg)
 
 		// Write project configuration file
 		msg, err := project.WriteOutConfig()

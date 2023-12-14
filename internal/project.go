@@ -186,7 +186,7 @@ func (p *Project) InstallGoModules() (string, error) {
 				if err != nil {
 					return msg, fmt.Errorf("unable to install go modules for git repository %s: %v", dep.Git.Url, err)
 				}
-				msg += fmt.Sprintf("  from source: %s\n", dep.Git.Url)
+				msg += fmt.Sprintf("  %s from-src=true\n", dep.Git.Url)
 			}
 		}
 	}
@@ -315,7 +315,7 @@ func (p *Project) WriteOutConfig() (string, error) {
 		}
 	}
 
-	msg = fmt.Sprintf("Configuration file %s written", ciuxConfigFile)
+	msg = fmt.Sprintf("Configuration file:\n  %s", ciuxConfigFile)
 	return msg, nil
 }
 
