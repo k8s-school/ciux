@@ -14,11 +14,9 @@ import (
 var refreshCmd = &cobra.Command{
 	Use:   "refresh",
 	Short: "Refresh ciux configuration file",
-	Long: `TODO: Add long description
+	Long: `Refresh ciux configuration file using only current local dependencies.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+No remote dependencies are used.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		repositoryPath := args[0]
 		project, err := internal.NewProject(repositoryPath, branch, "")
