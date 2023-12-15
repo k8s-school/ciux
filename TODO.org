@@ -1,9 +1,15 @@
-* TODO add parameter to check FROM image existence in .ciux (for k8s-spark-py), at build time, not itest
+* TODO Avoid rebuilding images if not needed (check git status)
 * TODO FIX bug in "ciux ignite ." related to deps base path
-* TODO add ciux kindload command?
+* TODO add parameter to check FROM image existence in .ciux (for k8s-spark-py), at build time, not itest
 * TODO Add command to refresh ciux.sh, required prior to fink-broker/build.sh
 * TODO Add option to generate version for main project (ciux version path), use to compute
 image name, or "ciux get imagename path"
 * TODO Improve message management for go modules
 * TODO Try to avoid loading $CIUXCONFIG at each github step?
 * TODO manage install of v3 go modules
+* DONE Compute dependencies image name w.r.t branch name or latest git version tag
+* TODO Manage image promotion
+** TODO Add vXXX-untested if image does not exists
+** TODO Promote image in CI if e2e tests passes, for main branch only
+** TODO cleanup vXXXX-untested
+* WONTFIX add ciux kindload command?
