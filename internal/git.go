@@ -353,8 +353,14 @@ func (g *Git) GetRevision() (*GitRevision, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to loop on commits: %v", err)
 	}
+	var tagStr string
+	if tag == nil {
+		tagStr = ""
+	} else {
+		tagStr = tag.Name().Short()
+	}
 	rev := GitRevision{
-		Tag:      tag.Name().Short(),
+		Tag:      tagStr,
 		Counter:  count,
 		HeadHash: headHash,
 		Dirty:    dirty,
