@@ -209,7 +209,7 @@ func (project *Project) ScanRemoteDeps(useBranch string) error {
 	}
 
 	for _, dep := range project.Dependencies {
-		if dep.Clone {
+		if dep.Git != nil {
 			err = dep.Git.LsRemote()
 			if err != nil {
 				return fmt.Errorf("unable to ls-remote for dependency repository %s: %v", dep.Git.Url, err)
@@ -274,11 +274,12 @@ func (p *Project) WriteOutConfig() (string, error) {
 
 	gitRepos := append(gitDeps, p.GitMain)
 	for _, gitObj := range gitRepos {
+		varName, err := gitObj.GetEnVarPrefix()
+		if err != nil {
+			return msg, fmt.Errorf("unable to get environment variable name for git repository %v: %v", gitObj, err)
+		}
 		if !gitObj.isRemote() {
-			varName, err := gitObj.GetEnVarPrefix()
-			if err != nil {
-				return msg, fmt.Errorf("unable to get environment variable name for git repository %v: %v", gitObj, err)
-			}
+
 			root, err := gitObj.GetRoot()
 			if err != nil {
 				return msg, fmt.Errorf("unable to get root of git repository: %v", err)
@@ -300,6 +301,12 @@ func (p *Project) WriteOutConfig() (string, error) {
 				return msg, fmt.Errorf("unable to write variable %s_VERSION to file %s: %v", varName, ciuxConfigFile, err)
 			}
 
+		}
+
+		depEnv := fmt.Sprintf("export %s_DIR=%s\n", varName, gitObj.WorkBranch)
+		_, err = f.WriteString(depEnv)
+		if err != nil {
+			return msg, fmt.Errorf("unable to write variable %s to file %s: %v", varName, ciuxConfigFile, err)
 		}
 	}
 
