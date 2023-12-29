@@ -15,12 +15,14 @@ type Project struct {
 	GitMain       *Git
 	ImageRegistry string
 	Dependencies  []*Dependency
+	// Required for github actions, which fetch a single commit by default
+	ForcedBranch string
 }
 
 // NewProject creates a new Project struct
 // It reads the repository_path/.ciux.yaml configuration file
 // and retrieve the work branch for all dependencies
-func NewProject(repository_path string, useBranch string, labelSelector string) (Project, error) {
+func NewProject(repository_path string, forcedBranch string, labelSelector string) (Project, error) {
 	git, err := NewGit(repository_path)
 	if err != nil {
 		return Project{}, fmt.Errorf("unable to create git repository: %v", err)
@@ -68,8 +70,10 @@ func NewProject(repository_path string, useBranch string, labelSelector string) 
 		GitMain:       git,
 		ImageRegistry: config.Registry,
 		Dependencies:  deps,
+		ForcedBranch:  forcedBranch,
 	}
-	p.ScanRemoteDeps(useBranch)
+
+	p.scanRemoteDeps()
 	return p, nil
 }
 
@@ -98,15 +102,19 @@ func (p *Project) String() string {
 				msg += fmt.Sprintf("\n  Image: %s", dep.Image)
 			} else if dep.Git != nil {
 				slog.Debug("Dependency", "url", dep.Git.Url, "branch", dep.Git.WorkBranch)
-				revDep, err := dep.Git.GetRevision()
-				if err != nil {
-					return msg + fmt.Sprintf("unable to describe git repository: %v", err)
+				if !dep.Git.isRemoteOnly() {
+					revDep, err := dep.Git.GetRevision()
+					if err != nil {
+						return msg + fmt.Sprintf("unable to describe git repository: %v", err)
+					}
+					rootDep, err := dep.Git.GetRoot()
+					if err != nil {
+						return msg + fmt.Sprintf("unable to get root of git repository: %v", err)
+					}
+					msg += fmt.Sprintf("\n  %s %s in-place=%t", rootDep, revDep.GetVersion(), dep.Git.InPlace)
+				} else {
+					msg += fmt.Sprintf("\n  %s remote-only=true", dep.Git.Url)
 				}
-				rootDep, err := dep.Git.GetRoot()
-				if err != nil {
-					return msg + fmt.Sprintf("unable to get root of git repository: %v", err)
-				}
-				msg += fmt.Sprintf("\n  %s %s in-place=%t", rootDep, revDep.GetVersion(), dep.Git.InPlace)
 				if dep.Pull {
 					msg += " pull=true"
 				}
@@ -193,19 +201,20 @@ func (p *Project) InstallGoModules() (string, error) {
 	return msg, nil
 }
 
-// ScanRemoteDeps retrieves the work branch for each dependency
+// scanRemoteDeps retrieves the work branch for each dependency
 // It is the same branch as the main repository if it exists
 // or the default branch of the dependency repository otherwise
-func (project *Project) ScanRemoteDeps(useBranch string) error {
-	var branch string
+func (project *Project) scanRemoteDeps() error {
+
 	var err error
-	if useBranch == "" {
-		branch, err = project.GitMain.GetBranch()
+
+	if project.ForcedBranch == "" {
+		project.GitMain.WorkBranch, err = project.GitMain.GetBranch()
 		if err != nil {
-			return fmt.Errorf("unable to get branch for project repository: %v", err)
+			return fmt.Errorf("unable to get work branch for project main repository: %v", err)
 		}
 	} else {
-		branch = useBranch
+		project.GitMain.WorkBranch = project.ForcedBranch
 	}
 
 	for _, dep := range project.Dependencies {
@@ -214,12 +223,12 @@ func (project *Project) ScanRemoteDeps(useBranch string) error {
 			if err != nil {
 				return fmt.Errorf("unable to ls-remote for dependency repository %s: %v", dep.Git.Url, err)
 			}
-			hasBranch, err := dep.Git.HasBranch(branch)
+			hasBranch, err := dep.Git.HasBranch(project.GitMain.WorkBranch)
 			if err != nil {
 				return fmt.Errorf("unable to check branch existence for dependency repository %s: %v", dep.Git.Url, err)
 			}
 			if hasBranch {
-				dep.Git.WorkBranch = branch
+				dep.Git.WorkBranch = project.GitMain.WorkBranch
 			} else {
 				main, err := dep.Git.MainBranch()
 				if err != nil {
@@ -278,8 +287,7 @@ func (p *Project) WriteOutConfig() (string, error) {
 		if err != nil {
 			return msg, fmt.Errorf("unable to get environment variable name for git repository %v: %v", gitObj, err)
 		}
-		if !gitObj.isRemote() {
-
+		if !gitObj.isRemoteOnly() {
 			root, err := gitObj.GetRoot()
 			if err != nil {
 				return msg, fmt.Errorf("unable to get root of git repository: %v", err)
@@ -303,7 +311,7 @@ func (p *Project) WriteOutConfig() (string, error) {
 
 		}
 
-		depEnv := fmt.Sprintf("export %s_DIR=%s\n", varName, gitObj.WorkBranch)
+		depEnv := fmt.Sprintf("export %s_WORKBRANCH=%s\n", varName, gitObj.WorkBranch)
 		_, err = f.WriteString(depEnv)
 		if err != nil {
 			return msg, fmt.Errorf("unable to write variable %s to file %s: %v", varName, ciuxConfigFile, err)

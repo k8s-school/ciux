@@ -238,13 +238,15 @@ func (gitObj *Git) LsRemote() error {
 	return nil
 }
 
-func (gitObj *Git) isRemote() bool {
+// isRemoteOnly returns true if the git object is only a remote repository
+// i.e. it has not been cloned locally
+func (gitObj *Git) isRemoteOnly() bool {
 	return gitObj.Repository == nil
 }
 
 func (gitObj *Git) HasBranch(branchname string) (bool, error) {
 	found := false
-	if gitObj.isRemote() {
+	if gitObj.isRemoteOnly() {
 		remote := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
 			Name: "origin",
 			URLs: []string{gitObj.Url},

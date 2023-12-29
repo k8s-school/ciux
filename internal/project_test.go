@@ -50,19 +50,19 @@ func prepareTestProject(pattern string) (Git, []Git, ProjConfig, error) {
 				Labels: map[string]string{"build": "true"},
 			},
 			{
-				Url:    "https://github.com/k8s-school/k8s-toolbox",
+				Url:    "https://github.com/k8s-school/ktbx",
 				Clone:  false,
 				Pull:   false,
 				Labels: map[string]string{"build": "true"},
 			},
 			{
-				Url:    "https://github.com/fake/fake-project",
+				Url:    "https://github.com/k8s-school/k8s-server",
 				Clone:  false,
 				Pull:   false,
 				Labels: map[string]string{"build": "false"},
 			},
 			{
-				Image:  "https://github.com/k8s-school/k8s-toolbox",
+				Image:  "https://github.com/k8s-school/ktbx",
 				Labels: map[string]string{"ci": "true", "key2": "value2"},
 			},
 		},
@@ -155,7 +155,7 @@ func TestScanRemoteDeps(t *testing.T) {
 	err = localGit.CreateBranch(branchName)
 	require.NoError(err)
 
-	err = project.ScanRemoteDeps("")
+	err = project.scanRemoteDeps()
 	require.NoError(err)
 	require.Equal("master", project.Dependencies[0].Git.WorkBranch)
 
@@ -163,7 +163,7 @@ func TestScanRemoteDeps(t *testing.T) {
 	err = remoteGitDeps[0].CreateBranch(branchName)
 	require.NoError(err)
 
-	err = project.ScanRemoteDeps("")
+	err = project.scanRemoteDeps()
 	require.NoError(err)
 	require.Equal("testbranch", project.Dependencies[0].Git.WorkBranch)
 
@@ -194,7 +194,7 @@ func TestWriteOutConfig(t *testing.T) {
 	// Assert that the file contains the expected environment variables
 	expectedVars := []string{}
 	for _, git := range project.GetGits() {
-		if !git.isRemote() {
+		if !git.isRemoteOnly() {
 			varName, err := git.GetEnVarPrefix()
 			require.NoError(err)
 			depRoot, err := git.GetRoot()
