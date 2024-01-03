@@ -438,3 +438,59 @@ func TestGoInstall(t *testing.T) {
 
 	// TODO: Add assertions to verify the behavior of the GoInstall function
 }
+
+func TestDiffPrevious(t *testing.T) {
+	require := require.New(t)
+
+	gitMeta, err := initGitRepo("ciux-git-diffprevious-test-")
+	require.NoError(err)
+	repo := gitMeta.Repository
+	worktree, err := repo.Worktree()
+	require.NoError(err)
+
+	// Create a new file
+	fSubPath := filepath.Join("subpath", "test.txt")
+	filePath := filepath.Join(worktree.Filesystem.Root(), fSubPath)
+	err = os.MkdirAll(filepath.Dir(filePath), os.ModePerm)
+	require.NoError(err)
+	file, err := os.Create(filePath)
+	require.NoError(err)
+	file.Close()
+
+	// Stage and commit the file
+	_, err = worktree.Add(fSubPath)
+	require.NoError(err)
+	_, err = worktree.Commit("Add "+fSubPath, &git.CommitOptions{
+		Author: &author,
+	})
+	require.NoError(err)
+
+	// No parent commit
+	hasDiff, err := HasDiff(repo, nil)
+	require.NoError(err)
+	require.True(hasDiff)
+
+	// Modify the file
+	file, err = os.OpenFile(filePath, os.O_WRONLY|os.O_APPEND, 0644)
+	require.NoError(err)
+	_, err = file.WriteString("Hello, World!")
+	require.NoError(err)
+	file.Close()
+
+	// Stage and commit the modified file
+	_, err = worktree.Add(fSubPath)
+	require.NoError(err)
+	_, err = worktree.Commit("Modify "+fSubPath, &git.CommitOptions{
+		Author: &author,
+	})
+	require.NoError(err)
+
+	// Call the DiffPrevious method
+	hasDiff, err = HasDiff(repo, []string{"subpath0", "invalid"})
+	require.NoError(err)
+	require.False(hasDiff)
+
+	hasDiff, err = HasDiff(repo, []string{"invalid", "subpath"})
+	require.NoError(err)
+	require.True(hasDiff)
+}
