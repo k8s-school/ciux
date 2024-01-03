@@ -3,11 +3,11 @@ package internal
 import "fmt"
 
 type GitRevision struct {
-	Tag      string
-	Counter  int
-	HeadHash string
-	Dirty    bool
-	Branch   string
+	Tag     string
+	Counter int
+	Hash    string
+	Dirty   bool
+	Branch  string
 }
 
 // GetVersion returns the reference as 'git describe ' will do
@@ -19,9 +19,15 @@ func (rev *GitRevision) GetVersion() string {
 	}
 	var counterHash string
 	if rev.Counter != 0 {
-		counterHash = fmt.Sprintf("-%d-g%s", rev.Counter, rev.HeadHash[0:7])
+		counterHash = fmt.Sprintf("-%d-g%s", rev.Counter, rev.Hash[0:7])
 	}
-	version := fmt.Sprintf("%s%s%s", rev.Tag, counterHash, dirty)
+	tag := rev.Tag
+	var version string
+	if rev.Tag == "" {
+		version = rev.Hash[0:7]
+	} else {
+		version = fmt.Sprintf("%s%s%s", tag, counterHash, dirty)
+	}
 	return version
 }
 
@@ -29,7 +35,7 @@ func (rev *GitRevision) UpgradeTag() (string, error) {
 	// Get the latest tag
 	tag := rev.Tag
 	if tag == "" {
-		return "v0.0.1-rc0", nil
+		return "v0", nil
 	}
 	// Upgrade the tag
 	semver := SemVerParse(tag)

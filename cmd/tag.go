@@ -20,7 +20,7 @@ var tagCmd = &cobra.Command{
 		git, err := internal.NewGit(repositoryPath)
 		internal.FailOnError(err)
 
-		rev, err := git.GetRevision()
+		rev, err := git.GetHeadRevision()
 		internal.FailOnError(err)
 		newTag, err := rev.UpgradeTag()
 		internal.FailOnError(err)

@@ -3,11 +3,11 @@ package internal
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	require "github.com/stretchr/testify/assert"
 )
 
 func TestListTags(t *testing.T) {
-	assert := assert.New(t)
+	assert := require.New(t)
 	tags, err := ListTags("docker.io/library/alpine")
 	assert.NoError(err)
 	t.Logf("Alpine Tags: %+v", tags)
@@ -18,18 +18,18 @@ func TestListTags(t *testing.T) {
 }
 
 func TestDescImage(t *testing.T) {
-	assert := assert.New(t)
+	require := require.New(t)
 	_, ref, err := DescImage("docker.io/library/alpine:3.18.3")
-	assert.NoError(err)
-	assert.Equal("index.docker.io/library/alpine:3.18.3", ref.Name())
+	require.NoError(err)
+	require.Equal("index.docker.io/library/alpine:3.18.3", ref.Name())
 	t.Logf("Alpine ref %+v", ref)
 
 	_, ref, err = DescImage("docker.io/library/alpine:3.18.3:notexist")
-	assert.Error(err)
-	assert.Nil(ref)
+	require.Error(err)
+	require.Nil(ref)
 }
 func TestGetImgEnVarPrefix(t *testing.T) {
-	assert := assert.New(t)
+	assert := require.New(t)
 
 	image := "docker.io/library/alpine:3.18.3"
 	expectedPrefix := "LIBRARY_ALPINE"

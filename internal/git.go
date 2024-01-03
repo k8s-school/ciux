@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -301,28 +302,12 @@ func IsDirty(s git.Status) bool {
 	return false
 }
 
-// GetRevision the reference as 'git describe ' will do
-func (g *Git) GetRevision() (*GitRevision, error) {
-
-	head, err := g.Repository.Head()
-	if err != nil {
-		return nil, fmt.Errorf("unable to find head: %v", err)
-	}
-	w, err := g.Repository.Worktree()
-	if err != nil {
-		return nil, fmt.Errorf("unable to find worktree: %v", err)
-	}
-	status, err := w.Status()
-	if err != nil {
-		return nil, fmt.Errorf("unable to find worktree status: %v", err)
-	}
-	branchName := head.Name().Short()
-	headHash := head.Hash().String()
-	dirty := IsDirty(status)
+// GetRevision returns the reference as 'git checkout <hash> && git describe ' would do
+func (g *Git) GetRevision(hash plumbing.Hash) (*GitRevision, error) {
 
 	// Fetch the reference log
 	cIter, err := g.Repository.Log(&git.LogOptions{
-		From:  head.Hash(),
+		From:  hash,
 		Order: git.LogOrderCommitterTime,
 	})
 	if err != nil {
@@ -340,20 +325,31 @@ func (g *Git) GetRevision() (*GitRevision, error) {
 	var count int
 	err = cIter.ForEach(func(c *object.Commit) error {
 		ref, found := (*semverTags)[c.Hash]
+		var err error
 		if found {
 			tag = ref
 			if tag != nil {
 				// Exit the loop
-				return storer.ErrStop
+				err = storer.ErrStop
 			} else {
-				return fmt.Errorf("inconsistent semver tag map")
+				err = fmt.Errorf("inconsistent semver tag map")
 			}
+		} else {
+			count++
+
 		}
-		count++
-		return nil
+		return err
 	})
 	if err != nil {
-		return nil, fmt.Errorf("unable to loop on commits: %v", err)
+		if errors.Is(err, plumbing.ErrObjectNotFound) {
+			repoDir, err2 := g.GetRoot()
+			if err2 != nil {
+				return nil, fmt.Errorf("unable to get root of git repository: %v", err)
+			}
+			slog.Warn("No history for local git repository", "path", repoDir)
+		} else {
+			return nil, fmt.Errorf("unable to loop on commits: %v", err)
+		}
 	}
 	var tagStr string
 	if tag == nil {
@@ -362,13 +358,41 @@ func (g *Git) GetRevision() (*GitRevision, error) {
 		tagStr = tag.Name().Short()
 	}
 	rev := GitRevision{
-		Tag:      tagStr,
-		Counter:  count,
-		HeadHash: headHash,
-		Dirty:    dirty,
-		Branch:   branchName,
+		Tag:     tagStr,
+		Counter: count,
+		Hash:    hash.String(),
+		Dirty:   false,
 	}
 	return &rev, nil
+}
+
+// GetHeadRevision the reference as 'git describe ' will do
+func (g *Git) GetHeadRevision() (*GitRevision, error) {
+
+	head, err := g.Repository.Head()
+	if err != nil {
+		return nil, fmt.Errorf("unable to find head: %v", err)
+	}
+
+	w, err := g.Repository.Worktree()
+	if err != nil {
+		return nil, fmt.Errorf("unable to find worktree: %v", err)
+	}
+	status, err := w.Status()
+	if err != nil {
+		return nil, fmt.Errorf("unable to find worktree status: %v", err)
+	}
+	dirty := IsDirty(status)
+
+	branchName := head.Name().Short()
+	revision, err := g.GetRevision(head.Hash())
+	if err != nil {
+		return nil, fmt.Errorf("unable to get head revision: %v", err)
+	}
+
+	revision.Branch = branchName
+	revision.Dirty = dirty
+	return revision, nil
 }
 
 func (g *Git) GetBranch() (string, error) {

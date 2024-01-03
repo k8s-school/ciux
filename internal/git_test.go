@@ -17,17 +17,12 @@ var author = object.Signature{
 	Email: "test@test.com",
 }
 
-func TestMain(m *testing.M) {
-	code := m.Run()
-	os.Exit(code)
-}
-
-func getRevisionTest(require *require.Assertions, gitMeta Git, expectedTagName string, expectedCounter int, expectedHeadHash string, expectedDirty bool) {
-	revision, err := gitMeta.GetRevision()
+func getHeadRevisionTest(require *require.Assertions, gitMeta Git, expectedTagName string, expectedCounter int, expectedHeadHash string, expectedDirty bool) {
+	revision, err := gitMeta.GetHeadRevision()
 	require.NoError(err)
 	require.Equal(expectedTagName, revision.Tag)
 	require.Equal(expectedCounter, revision.Counter)
-	require.Equal(expectedHeadHash, revision.HeadHash)
+	require.Equal(expectedHeadHash, revision.Hash)
 	require.Equal(expectedDirty, revision.Dirty)
 }
 
@@ -95,7 +90,7 @@ func TestGitSemverTagMap(t *testing.T) {
 
 }
 
-func TestGetRevision(t *testing.T) {
+func TestGetHeadRevision(t *testing.T) {
 	require := require.New(t)
 	gitMeta, err := initGitRepo("ciux-git-getrevision-test-")
 	require.NoError(err)
@@ -105,20 +100,20 @@ func TestGetRevision(t *testing.T) {
 
 	commit1, _, err := gitMeta.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
 	require.NoError(err)
-	getRevisionTest(require, gitMeta, "v1.0.0", 0, commit1.String(), false)
+	getHeadRevisionTest(require, gitMeta, "v1.0.0", 0, commit1.String(), false)
 
 	commit2, _ := worktree.Commit("second", &git.CommitOptions{Author: &author})
-	getRevisionTest(require, gitMeta, "v1.0.0", 1, commit2.String(), false)
+	getHeadRevisionTest(require, gitMeta, "v1.0.0", 1, commit2.String(), false)
 
 	commit3, _ := worktree.Commit("third", &git.CommitOptions{Author: &author})
-	getRevisionTest(require, gitMeta, "v1.0.0", 2, commit3.String(), false)
+	getHeadRevisionTest(require, gitMeta, "v1.0.0", 2, commit3.String(), false)
 
 	// Ignore non annotated tag
 	repo.CreateTag("v2.0.0", commit3, nil)
-	getRevisionTest(require, gitMeta, "v1.0.0", 2, commit3.String(), false)
+	getHeadRevisionTest(require, gitMeta, "v1.0.0", 2, commit3.String(), false)
 }
 
-func TestGetRevisionWithBranch(t *testing.T) {
+func TestGetHeadRevisionWithBranch(t *testing.T) {
 	require := require.New(t)
 	gitMeta, err := initGitRepo("ciux-git-getrevision-branch-test-")
 	require.NoError(err)
@@ -128,7 +123,7 @@ func TestGetRevisionWithBranch(t *testing.T) {
 
 	commit1, _, err := gitMeta.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
 	require.NoError(err)
-	getRevisionTest(require, gitMeta, "v1.0.0", 0, commit1.String(), false)
+	getHeadRevisionTest(require, gitMeta, "v1.0.0", 0, commit1.String(), false)
 
 	branchName := "testbranch"
 	branch := plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", branchName))
@@ -140,8 +135,8 @@ func TestGetRevisionWithBranch(t *testing.T) {
 
 	commit2, _, err := gitMeta.TaggedCommit("second.txt", "second", "v2.0.0", true, author)
 	require.NoError(err)
-	getRevisionTest(require, gitMeta, "v2.0.0", 0, commit2.String(), false)
-	rev, err := gitMeta.GetRevision()
+	getHeadRevisionTest(require, gitMeta, "v2.0.0", 0, commit2.String(), false)
+	rev, err := gitMeta.GetHeadRevision()
 	require.NoError(err)
 
 	require.Equal(branchName, rev.Branch)
@@ -287,8 +282,8 @@ func TestCloneWorkBranch(t *testing.T) {
 	require.NoError(err)
 	require.Equal(branchName, cloneHead.Name().Short())
 
-	gitObj.GetRevision()
-	getRevisionTest(require, gitOrigin, "v2.0.0", 0, commit2.String(), false)
+	gitObj.GetHeadRevision()
+	getHeadRevisionTest(require, gitOrigin, "v2.0.0", 0, commit2.String(), false)
 
 	os.RemoveAll(rootOrigin)
 	os.RemoveAll(cloneRoot)
@@ -437,4 +432,41 @@ func TestGoInstall(t *testing.T) {
 	require.NoError(err)
 
 	// TODO: Add assertions to verify the behavior of the GoInstall function
+}
+func TestGetRevision(t *testing.T) {
+	require := require.New(t)
+
+	// Create a new Git repository
+	gitObj, err := prepareTestRepository()
+	require.NoError(err)
+	root, err := gitObj.GetRoot()
+	require.NoError(err)
+
+	hash1, err := gitObj.Repository.ResolveRevision("v1.0.0")
+	require.NoError(err)
+
+	hash3, err := gitObj.Repository.ResolveRevision("HEAD")
+	require.NoError(err)
+
+	// Call the GetRevision method
+	revision, err := gitObj.GetRevision(*hash1)
+	require.NoError(err)
+
+	// Verify the returned GitRevision object
+	require.Equal("v1.0.0", revision.Tag)
+	require.Equal(0, revision.Counter)
+	require.Equal(hash1.String(), revision.Hash)
+	require.False(revision.Dirty)
+
+	// Call the GetRevision method
+	revision, err = gitObj.GetRevision(*hash3)
+	require.NoError(err)
+
+	// Verify the returned GitRevision object
+	require.Equal("v2.0.0", revision.Tag)
+	require.Equal(1, revision.Counter)
+	require.Equal(hash3.String(), revision.Hash)
+	require.False(revision.Dirty)
+
+	os.RemoveAll(root)
 }
