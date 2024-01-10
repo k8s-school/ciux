@@ -40,7 +40,12 @@ func LastDir(permalink string) (string, error) {
 // IsPathInSubdirectory checks if the given file path is in the given subdirectory
 func IsPathInSubdirectory(filePath, subdirectory string) (bool, error) {
 
-	if filePath == "" || subdirectory == "" {
+	// Subdirectory is root directory
+	if subdirectory == "" {
+		return true, nil
+	}
+
+	if filePath == "" {
 		return false, fmt.Errorf("invalid arguments: filePath=%q, subdirectory=%q", filePath, subdirectory)
 	}
 

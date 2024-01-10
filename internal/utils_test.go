@@ -93,8 +93,8 @@ func TestIsPathInSubdirectory(t *testing.T) {
 			name:           "empty subdirectory",
 			filePath:       "/home/user/documents/file.txt",
 			subdirectory:   "",
-			expectedResult: false,
-			expectedError:  fmt.Errorf("invalid arguments: filePath=%q, subdirectory=%q", "/home/user/documents/file.txt", ""),
+			expectedResult: true,
+			expectedError:  nil,
 		},
 	}
 
