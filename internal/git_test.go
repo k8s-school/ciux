@@ -437,26 +437,35 @@ func TestGetRevision(t *testing.T) {
 	require := require.New(t)
 
 	// Create a new Git repository
-	gitObj, err := initGitRepo("ciux-git-test-")
+	gitObj, err := prepareTestRepository()
 	require.NoError(err)
 	root, err := gitObj.GetRoot()
 	require.NoError(err)
 
-	// Create a new commit
-	hash, _, err := gitObj.TaggedCommit("file.txt", "commit message", "v1.0.0", true, author)
+	hash1, err := gitObj.Repository.ResolveRevision("v1.0.0")
 	require.NoError(err)
 
-	_, _, err = gitObj.TaggedCommit("file2.txt", "commit message", "v2.0.0", true, author)
+	hash3, err := gitObj.Repository.ResolveRevision("HEAD")
 	require.NoError(err)
 
 	// Call the GetRevision method
-	revision, err := gitObj.GetRevision(*hash)
+	revision, err := gitObj.GetRevision(*hash1)
 	require.NoError(err)
 
 	// Verify the returned GitRevision object
 	require.Equal("v1.0.0", revision.Tag)
 	require.Equal(0, revision.Counter)
-	require.Equal(hash.String(), revision.Hash)
+	require.Equal(hash1.String(), revision.Hash)
+	require.False(revision.Dirty)
+
+	// Call the GetRevision method
+	revision, err = gitObj.GetRevision(*hash3)
+	require.NoError(err)
+
+	// Verify the returned GitRevision object
+	require.Equal("v2.0.0", revision.Tag)
+	require.Equal(1, revision.Counter)
+	require.Equal(hash3.String(), revision.Hash)
 	require.False(revision.Dirty)
 
 	os.RemoveAll(root)

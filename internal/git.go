@@ -301,6 +301,7 @@ func IsDirty(s git.Status) bool {
 	return false
 }
 
+// GetRevision returns the reference as 'git checkout <hash> && git describe ' would do
 func (g *Git) GetRevision(hash plumbing.Hash) (*GitRevision, error) {
 
 	w, err := g.Repository.Worktree()
