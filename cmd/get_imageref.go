@@ -25,9 +25,11 @@ to quickly create a Cobra application.`,
 		internal.FailOnError(err)
 		head, err := gitMeta.Repository.Head()
 		internal.FailOnError(err)
-		diffPrevious, err := internal.FindCodeChange(gitMeta.Repository, head.Hash(), []string{"internal"})
+		commit, err := internal.FindCodeChange(gitMeta.Repository, head.Hash(), []string{"rootfs"})
 		internal.FailOnError(err)
-		internal.Infof("TODO: %+v", diffPrevious)
+		rev, err := gitMeta.GetRevision(commit.Hash)
+		internal.FailOnError(err)
+		internal.Infof("TODO: %+v", rev.GetVersion())
 	},
 }
 

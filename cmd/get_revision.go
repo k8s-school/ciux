@@ -8,10 +8,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var pathes []string
+
 // revisionCmd represents the revision command
 var revisionCmd = &cobra.Command{
-	Use:   "revision (REPOSITORY) (DEPENDENCY_REPOSITORIES...)",
-	Short: "A brief description of your command",
+	Use:     "revision (REPOSITORY) (DEPENDENCY_REPOSITORIES...)",
+	Aliases: []string{"rev"},
+	Short:   "A brief description of your command",
 	Long: `A longer description that spans multiple lines and likely contains examples
 and usage of using your command. For example:
 
@@ -31,18 +34,5 @@ to quickly create a Cobra application.`,
 
 func init() {
 	getCmd.AddCommand(revisionCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
+	revisionCmd.Flags().StringSliceVarP(&pathes, "pathes", "p", []string{"rootfs"}, "Pathes to source code used to build the container image")
 }
-
-// Create a golang function which returns the revision of a git repository
-// Path: cmd/get_revision.go
-
-// Create a golang function which returns the tag of a git repository
-// Path: cmd/get_tag.go
