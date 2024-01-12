@@ -8,8 +8,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var pathes []string
-
 // revisionCmd represents the revision command
 var revisionCmd = &cobra.Command{
 	Use:     "revision (REPOSITORY) (DEPENDENCY_REPOSITORIES...)",
@@ -34,5 +32,4 @@ to quickly create a Cobra application.`,
 
 func init() {
 	getCmd.AddCommand(revisionCmd)
-	revisionCmd.Flags().StringSliceVarP(&pathes, "pathes", "p", []string{"rootfs"}, "Pathes to source code used to build the container image")
 }

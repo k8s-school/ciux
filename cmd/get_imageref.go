@@ -8,16 +8,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var pathes []string
+
 // imageRefCmd represents the revision command
 var imageRefCmd = &cobra.Command{
-	Use:   "revision (REPOSITORY) (DEPENDENCY_REPOSITORIES...)",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Use:     "imageversion (REPOSITORY)",
+	Aliases: []string{"img"},
+	Short:   "Retrieve the version of a container image, based on the source code used to build it",
+	Long: `Retrieve the version of a container image, based on the source code used to build it
+	  Use --pathes to specify the pathes to source code used to build the container image
+	  this pathes are relatives and must be used in the image's Dockerfile COPY/ADD commands`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		repositoryPath := args[0]
@@ -25,7 +25,7 @@ to quickly create a Cobra application.`,
 		internal.FailOnError(err)
 		head, err := gitMeta.Repository.Head()
 		internal.FailOnError(err)
-		commit, err := internal.FindCodeChange(gitMeta.Repository, head.Hash(), []string{"rootfs"})
+		commit, err := internal.FindCodeChange(gitMeta.Repository, head.Hash(), pathes)
 		internal.FailOnError(err)
 		rev, err := gitMeta.GetRevision(commit.Hash)
 		internal.FailOnError(err)
@@ -36,13 +36,7 @@ to quickly create a Cobra application.`,
 func init() {
 	getCmd.AddCommand(imageRefCmd)
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
+	imageRefCmd.Flags().StringSliceVarP(&pathes, "pathes", "p", []string{"rootfs"}, "Relative pathes to source code used to build the container image")
 }
 
 // Create a golang function which returns the revision of a git repository

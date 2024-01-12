@@ -1,3 +1,5 @@
+* TODO add integration tests!!!
+* TODO Improve tag code wrt https://medium.com/@clm160/tag-example-with-go-git-library-4377a84bbf17
 * TODO Avoid rebuilding images if not needed (check git status)
 * TODO FIX bug in "ciux ignite ." related to deps base path
 * TODO add parameter to check FROM image existence in .ciux (for k8s-spark-py), at build time, not itest

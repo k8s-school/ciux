@@ -24,7 +24,6 @@ import (
 )
 
 var (
-	depsPath      string
 	dryRun        bool
 	verbosity     int
 	labelSelector string
@@ -61,7 +60,6 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().IntVarP(&verbosity, "verbosity", "v", 0, "Verbosity level (-v0 for minimal, -v2 for maximum)")
-	rootCmd.PersistentFlags().StringVarP(&depsPath, "deps-path", "d", "", "Path to dependency source code, default to temporary directory")
 
 	cobra.OnInitialize(initLogger)
 
