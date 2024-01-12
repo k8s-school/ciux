@@ -23,7 +23,7 @@ to quickly create a Cobra application.`,
 		repositoryPath := args[0]
 		gitMeta, err := internal.NewGit(repositoryPath)
 		internal.FailOnError(err)
-		rev, err := gitMeta.GetRevision()
+		rev, err := gitMeta.GetHeadRevision()
 		internal.FailOnError(err)
 		internal.Infof("Revision: %+v", rev)
 	},

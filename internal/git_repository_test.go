@@ -72,6 +72,15 @@ func TestHasDiff(t *testing.T) {
 	require.NoError(err)
 	repo := gitObj.Repository
 
+	hash1, err := gitObj.Repository.ResolveRevision("v1.0.0")
+	require.NoError(err)
+
+	hash2, err := gitObj.Repository.ResolveRevision("v2.0.0")
+	require.NoError(err)
+
+	hash3, err := gitObj.Repository.ResolveRevision("HEAD")
+	require.NoError(err)
+
 	// Test case 1: File not changed in the commit
 	currentCommit, err := repo.CommitObject(*hash2)
 	require.NoError(err)
@@ -88,7 +97,7 @@ func TestHasDiff(t *testing.T) {
 	require.True(hasDiff)
 
 	// Test case 1: File not changed in the commit
-	currentCommit, err = repo.CommitObject(hash3)
+	currentCommit, err = repo.CommitObject(*hash3)
 	require.NoError(err)
 	ancestorCommit, err = repo.CommitObject(*hash1)
 	require.NoError(err)
@@ -119,7 +128,7 @@ func TestFindCodeChange(t *testing.T) {
 	require.NoError(err)
 
 	// Get the latest commit with code change for a specific file
-	latestCommit, err := FindCodeChange(repo, hash2, []string{""})
+	latestCommit, err := FindCodeChange(repo, *hash2, []string{""})
 	require.NoError(err)
 	require.Equal(*hash2, latestCommit.Hash)
 

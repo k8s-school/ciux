@@ -42,8 +42,8 @@ func HasDiff(current *object.Commit, ancestor *object.Commit, pathes []string) (
 	return false, nil
 }
 
-func FindCodeChange(repository *git.Repository, hash *plumbing.Hash, pathes []string) (*object.Commit, error) {
-	commit, _ := repository.CommitObject(*hash)
+func FindCodeChange(repository *git.Repository, hash plumbing.Hash, pathes []string) (*object.Commit, error) {
+	commit, _ := repository.CommitObject(hash)
 	// First commit
 	if len(commit.ParentHashes) == 0 {
 		return commit, nil

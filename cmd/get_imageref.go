@@ -23,7 +23,9 @@ to quickly create a Cobra application.`,
 		repositoryPath := args[0]
 		gitMeta, err := internal.NewGit(repositoryPath)
 		internal.FailOnError(err)
-		diffPrevious, err := internal.LatestDiff(gitMeta.Repository, []string{"."})
+		head, err := gitMeta.Repository.Head()
+		internal.FailOnError(err)
+		diffPrevious, err := internal.FindCodeChange(gitMeta.Repository, head.Hash(), []string{"internal"})
 		internal.FailOnError(err)
 		internal.Infof("TODO: %+v", diffPrevious)
 	},

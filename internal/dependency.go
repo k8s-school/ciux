@@ -25,7 +25,7 @@ func (dep *Dependency) GetImageName(imageRegistry string) (string, error) {
 		return dep.Image, nil
 	} else {
 		gitDep := dep.Git
-		rev, err := gitDep.GetRevision()
+		rev, err := gitDep.GetHeadRevision()
 		if err != nil {
 			return "", fmt.Errorf("unable to describe git repository: %v", err)
 		}

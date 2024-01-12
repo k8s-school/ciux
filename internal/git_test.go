@@ -17,12 +17,12 @@ var author = object.Signature{
 	Email: "test@test.com",
 }
 
-func getRevisionTest(require *require.Assertions, gitMeta Git, expectedTagName string, expectedCounter int, expectedHeadHash string, expectedDirty bool) {
-	revision, err := gitMeta.GetRevision()
+func getHeadRevisionTest(require *require.Assertions, gitMeta Git, expectedTagName string, expectedCounter int, expectedHeadHash string, expectedDirty bool) {
+	revision, err := gitMeta.GetHeadRevision()
 	require.NoError(err)
 	require.Equal(expectedTagName, revision.Tag)
 	require.Equal(expectedCounter, revision.Counter)
-	require.Equal(expectedHeadHash, revision.HeadHash)
+	require.Equal(expectedHeadHash, revision.Hash)
 	require.Equal(expectedDirty, revision.Dirty)
 }
 
@@ -100,17 +100,17 @@ func TestGetRevision(t *testing.T) {
 
 	commit1, _, err := gitMeta.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
 	require.NoError(err)
-	getRevisionTest(require, gitMeta, "v1.0.0", 0, commit1.String(), false)
+	getHeadRevisionTest(require, gitMeta, "v1.0.0", 0, commit1.String(), false)
 
 	commit2, _ := worktree.Commit("second", &git.CommitOptions{Author: &author})
-	getRevisionTest(require, gitMeta, "v1.0.0", 1, commit2.String(), false)
+	getHeadRevisionTest(require, gitMeta, "v1.0.0", 1, commit2.String(), false)
 
 	commit3, _ := worktree.Commit("third", &git.CommitOptions{Author: &author})
-	getRevisionTest(require, gitMeta, "v1.0.0", 2, commit3.String(), false)
+	getHeadRevisionTest(require, gitMeta, "v1.0.0", 2, commit3.String(), false)
 
 	// Ignore non annotated tag
 	repo.CreateTag("v2.0.0", commit3, nil)
-	getRevisionTest(require, gitMeta, "v1.0.0", 2, commit3.String(), false)
+	getHeadRevisionTest(require, gitMeta, "v1.0.0", 2, commit3.String(), false)
 }
 
 func TestGetRevisionWithBranch(t *testing.T) {
@@ -123,7 +123,7 @@ func TestGetRevisionWithBranch(t *testing.T) {
 
 	commit1, _, err := gitMeta.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
 	require.NoError(err)
-	getRevisionTest(require, gitMeta, "v1.0.0", 0, commit1.String(), false)
+	getHeadRevisionTest(require, gitMeta, "v1.0.0", 0, commit1.String(), false)
 
 	branchName := "testbranch"
 	branch := plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", branchName))
@@ -135,8 +135,8 @@ func TestGetRevisionWithBranch(t *testing.T) {
 
 	commit2, _, err := gitMeta.TaggedCommit("second.txt", "second", "v2.0.0", true, author)
 	require.NoError(err)
-	getRevisionTest(require, gitMeta, "v2.0.0", 0, commit2.String(), false)
-	rev, err := gitMeta.GetRevision()
+	getHeadRevisionTest(require, gitMeta, "v2.0.0", 0, commit2.String(), false)
+	rev, err := gitMeta.GetHeadRevision()
 	require.NoError(err)
 
 	require.Equal(branchName, rev.Branch)
@@ -282,8 +282,8 @@ func TestCloneWorkBranch(t *testing.T) {
 	require.NoError(err)
 	require.Equal(branchName, cloneHead.Name().Short())
 
-	gitObj.GetRevision()
-	getRevisionTest(require, gitOrigin, "v2.0.0", 0, commit2.String(), false)
+	gitObj.GetHeadRevision()
+	getHeadRevisionTest(require, gitOrigin, "v2.0.0", 0, commit2.String(), false)
 
 	os.RemoveAll(rootOrigin)
 	os.RemoveAll(cloneRoot)

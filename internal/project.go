@@ -83,7 +83,7 @@ func (p *Project) String() string {
 	if err != nil {
 		return fmt.Sprintf("unable to get project name: %v", err)
 	}
-	revMain, err := p.GitMain.GetRevision()
+	revMain, err := p.GitMain.GetHeadRevision()
 	if err != nil {
 		return fmt.Sprintf("unable to describe project repository: %v", err)
 	}
@@ -103,7 +103,7 @@ func (p *Project) String() string {
 			} else if dep.Git != nil {
 				slog.Debug("Dependency", "url", dep.Git.Url, "branch", dep.Git.WorkBranch)
 				if !dep.Git.isRemoteOnly() {
-					revDep, err := dep.Git.GetRevision()
+					revDep, err := dep.Git.GetHeadRevision()
 					if err != nil {
 						return msg + fmt.Sprintf("unable to describe git repository: %v", err)
 					}
@@ -299,7 +299,7 @@ func (p *Project) WriteOutConfig() (string, error) {
 				return msg, fmt.Errorf("unable to write variable %s to file %s: %v", varName, ciuxConfigFile, err)
 			}
 
-			rev, err := gitObj.GetRevision()
+			rev, err := gitObj.GetHeadRevision()
 			if err != nil {
 				return msg, fmt.Errorf("unable to describe git repository: %v", err)
 			}
