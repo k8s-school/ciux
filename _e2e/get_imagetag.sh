@@ -30,6 +30,7 @@ registry: test_url/test_org
 EOF
 git add "$file"
 git commit -m "Add $file"
+ciux ignite "$git_dir" --selector "itest=true"
 
 # Add a file to the rootfs
 file="$git_dir/rootfs/hello.txt"
