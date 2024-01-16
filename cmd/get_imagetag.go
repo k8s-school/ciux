@@ -4,15 +4,17 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/k8s-school/ciux/internal"
 	"github.com/spf13/cobra"
 )
 
 var pathes []string
 
-// imageRefCmd represents the revision command
-var imageRefCmd = &cobra.Command{
-	Use:     "imageversion (REPOSITORY)",
+// imageTagCmd represents the revision command
+var imageTagCmd = &cobra.Command{
+	Use:     "imagetag (REPOSITORY)",
 	Aliases: []string{"img"},
 	Short:   "Retrieve the version of a container image, based on the source code used to build it",
 	Long: `Retrieve the version of a container image, based on the source code used to build it
@@ -29,14 +31,14 @@ var imageRefCmd = &cobra.Command{
 		internal.FailOnError(err)
 		rev, err := gitMeta.GetRevision(commit.Hash)
 		internal.FailOnError(err)
-		internal.Infof("TODO: %+v", rev.GetVersion())
+		fmt.Printf("%s\n", rev.GetVersion())
 	},
 }
 
 func init() {
-	getCmd.AddCommand(imageRefCmd)
+	getCmd.AddCommand(imageTagCmd)
 
-	imageRefCmd.Flags().StringSliceVarP(&pathes, "pathes", "p", []string{"rootfs"}, "Relative pathes to source code used to build the container image")
+	imageTagCmd.Flags().StringSliceVarP(&pathes, "pathes", "p", []string{"rootfs"}, "Relative pathes to source code used to build the container image")
 }
 
 // Create a golang function which returns the revision of a git repository
