@@ -22,10 +22,12 @@ func (rev *GitRevision) GetVersion() string {
 		counterHash = fmt.Sprintf("-%d-g%s", rev.Counter, rev.Hash[0:7])
 	}
 	tag := rev.Tag
+	var version string
 	if rev.Tag == "" {
-		tag = "v0"
+		version = rev.Hash[0:7]
+	} else {
+		version = fmt.Sprintf("%s%s%s", tag, counterHash, dirty)
 	}
-	version := fmt.Sprintf("%s%s%s", tag, counterHash, dirty)
 	return version
 }
 

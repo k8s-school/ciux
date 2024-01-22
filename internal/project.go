@@ -91,7 +91,7 @@ func (p *Project) String() string {
 	if err != nil {
 		return fmt.Sprintf("unable to get root of project repository: %v", err)
 	}
-	msg := fmt.Sprintf("Project %s\n  %s %+s\n", name, rootMain, revMain.GetVersion())
+	msg := fmt.Sprintf("Project %s\n  %s@%s\n", name, rootMain, revMain.GetVersion())
 	if len(p.Dependencies) != 0 {
 		msg += "Dependencies:"
 		for _, dep := range p.Dependencies {

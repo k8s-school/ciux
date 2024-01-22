@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -334,20 +335,31 @@ func (g *Git) GetRevision(hash plumbing.Hash) (*GitRevision, error) {
 	var count int
 	err = cIter.ForEach(func(c *object.Commit) error {
 		ref, found := (*semverTags)[c.Hash]
+		var err error
 		if found {
 			tag = ref
 			if tag != nil {
 				// Exit the loop
-				return storer.ErrStop
+				err = storer.ErrStop
 			} else {
-				return fmt.Errorf("inconsistent semver tag map")
+				err = fmt.Errorf("inconsistent semver tag map")
 			}
+		} else {
+			count++
+
 		}
-		count++
-		return nil
+		return err
 	})
 	if err != nil {
-		return nil, fmt.Errorf("unable to loop on commits: %v", err)
+		if errors.Is(err, plumbing.ErrObjectNotFound) {
+			repoDir, err2 := g.GetRoot()
+			if err2 != nil {
+				return nil, fmt.Errorf("unable to get root of git repository: %v", err)
+			}
+			slog.Warn("No history for local git repository", "path", repoDir)
+		} else {
+			return nil, fmt.Errorf("unable to loop on commits: %v", err)
+		}
 	}
 	var tagStr string
 	if tag == nil {
