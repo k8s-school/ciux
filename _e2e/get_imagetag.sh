@@ -18,6 +18,8 @@ git_dir="$tmp_dir/$project"
 mkdir "$git_dir"
 cd "$git_dir"
 git init "$git_dir"
+git config --global user.email "you@example.com"
+git config --global user.name "Your Name"
 
 mkdir -p "$git_dir/rootfs"
 
