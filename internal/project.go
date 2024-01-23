@@ -13,6 +13,7 @@ import (
 
 type Project struct {
 	GitMain       *Git
+	SourcePathes  []string
 	ImageRegistry string
 	Dependencies  []*Dependency
 	// Required for github actions, which fetch a single commit by default
@@ -68,6 +69,7 @@ func NewProject(repository_path string, forcedBranch string, labelSelector strin
 
 	p := Project{
 		GitMain:       git,
+		SourcePathes:  config.SourcePathes,
 		ImageRegistry: config.Registry,
 		Dependencies:  deps,
 		ForcedBranch:  forcedBranch,

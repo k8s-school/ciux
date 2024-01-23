@@ -49,4 +49,5 @@ type DepConfig struct {
 type ProjConfig struct {
 	Registry     string      `mapstructure:"registry" default:""`
 	Dependencies []DepConfig `mapstructure:"dependencies"`
+	SourcePathes []string    `mapstructure:"sourcePathes"`
 }

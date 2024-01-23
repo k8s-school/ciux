@@ -5,12 +5,13 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/k8s-school/ciux/internal"
 	"github.com/spf13/cobra"
 )
 
-var pathes []string
+// var pathes []string
 var full bool
 
 // imageTagCmd represents the revision command
@@ -27,19 +28,15 @@ var imageTagCmd = &cobra.Command{
 		var project internal.Project
 		var err error
 		var gitMain *internal.Git
+		project, err = internal.NewProject(repositoryPath, branch, labelSelector)
+		internal.FailOnError(err)
+		gitMain = project.GitMain
 
-		if full {
-			repositoryPath := args[0]
-			project, err = internal.NewProject(repositoryPath, branch, labelSelector)
-			internal.FailOnError(err)
-			gitMain = project.GitMain
-		} else {
-			gitMain, err = internal.NewGit(repositoryPath)
-			internal.FailOnError(err)
-		}
+		slog.Debug("Project source directories", "sourcePathes", project.SourcePathes)
+
 		head, err := gitMain.Repository.Head()
 		internal.FailOnError(err)
-		commit, err := internal.FindCodeChange(gitMain.Repository, head.Hash(), pathes)
+		commit, err := internal.FindCodeChange(gitMain.Repository, head.Hash(), project.SourcePathes)
 		internal.FailOnError(err)
 		rev, err := gitMain.GetRevision(commit.Hash)
 		internal.FailOnError(err)
@@ -57,7 +54,7 @@ var imageTagCmd = &cobra.Command{
 func init() {
 	getCmd.AddCommand(imageTagCmd)
 
-	imageTagCmd.Flags().StringSliceVarP(&pathes, "pathes", "p", []string{"rootfs"}, "Relative pathes to source code used to build the container image")
+	//imageTagCmd.Flags().StringSliceVarP(&pathes, "pathes", "p", []string{"rootfs"}, "Relative pathes to source code used to build the container image")
 	imageTagCmd.Flags().BoolVarP(&full, "full", "f", false, "Display full image name")
 }
 

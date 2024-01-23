@@ -29,6 +29,8 @@ file="$git_dir/.ciux"
 cat > "$file" <<EOF
 apiVersion: v1alpha1
 registry: test_url/test_org
+sourcePathes:
+  - rootfs
 EOF
 git add "$file"
 git commit -m "Add $file"
