@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"log/slog"
+	"os"
 
 	"github.com/k8s-school/ciux/internal"
 	"github.com/spf13/cobra"
@@ -15,8 +16,8 @@ import (
 var check bool
 var suffix string
 
-// imageTagCmd represents the revision command
-var imageTagCmd = &cobra.Command{
+// imageCmd represents the revision command
+var imageCmd = &cobra.Command{
 	Use:     "imagetag (REPOSITORY)",
 	Aliases: []string{"img"},
 	Short:   "Retrieve the version of a container image, based on the source code used to build it",
@@ -41,28 +42,42 @@ var imageTagCmd = &cobra.Command{
 		internal.FailOnError(err)
 		rev, err := gitMain.GetRevision(commit.Hash)
 		internal.FailOnError(err)
-		if check {
-			name, err := gitMain.GetName()
-			if len(suffix) > 0 {
-				name = fmt.Sprintf("%s-%s", name, suffix)
-			}
-			internal.FailOnError(err)
-			imageUrl := fmt.Sprintf("%s/%s:%s", project.ImageRegistry, name, rev.GetVersion())
-			fmt.Printf("%s\n", imageUrl)
-			_, _, err = internal.DescImage(imageUrl)
-			internal.FailOnError(err)
-		} else {
-			fmt.Printf("%s\n", rev.GetVersion())
+
+		name, err := gitMain.GetName()
+		if len(suffix) > 0 {
+			name = fmt.Sprintf("%s-%s", name, suffix)
 		}
+		image := internal.Image{
+			Registry: project.ImageRegistry,
+			Name:     name,
+			Tag:      rev.GetVersion(),
+		}
+
+		internal.FailOnError(err)
+
+		fmt.Printf("%s\n", image)
+		if check {
+			_, _, err = image.Desc()
+			if err != nil {
+				slog.Debug("Image not found in registry", "image", image)
+				rev, err1 := gitMain.GetHeadRevision()
+				internal.FailOnError(err1)
+				image.Tag = rev.GetVersion()
+				fmt.Println(image)
+				os.Exit(1)
+			}
+		}
+
+		fmt.Println(image)
 	},
 }
 
 func init() {
-	getCmd.AddCommand(imageTagCmd)
+	getCmd.AddCommand(imageCmd)
 
 	//imageTagCmd.Flags().StringSliceVarP(&pathes, "pathes", "p", []string{"rootfs"}, "Relative pathes to source code used to build the container image")
-	imageTagCmd.Flags().BoolVarP(&check, "check", "c", false, "Check if the image is available in the registry")
-	imageTagCmd.Flags().StringVarP(&suffix, "suffix", "p", "", "Suffix to add to the image name")
+	imageCmd.Flags().BoolVarP(&check, "check", "c", false, "Check if an image with same source code is already available in the registry, if not exit with error and print the name of the image to build")
+	imageCmd.Flags().StringVarP(&suffix, "suffix", "p", "", "Suffix to add to the image name")
 }
 
 // Create a golang function which returns the revision of a git repository

@@ -69,3 +69,14 @@ img_tag=$(ciux get imagetag "$git_dir")
 expected_img_tag="$git_tag-2-g$(git rev-parse --short HEAD)"
 check_equal "$expected_img_tag" "$img_tag"
 
+ink "Check image url"
+if img_url=$(ciux get imagetag --check "$git_dir")
+then
+    ink -r "ciux get imagetag --full failed"
+else
+    expected_img_url="test_url/test_org/$project:$expected_img_tag"
+    check_equal "$expected_img_url" "$img_url"
+fi
+-
+-
+

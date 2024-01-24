@@ -9,6 +9,24 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
+type Image struct {
+	Registry string
+	Name     string
+	Tag      string
+}
+
+func (i Image) String() string {
+	return i.Url()
+}
+
+func (i Image) Url() string {
+	return fmt.Sprintf("%s/%s:%s", i.Registry, i.Name, i.Tag)
+}
+
+func (i Image) Desc() (v1.Image, name.Reference, error) {
+	return DescImage(i.Url())
+}
+
 func ListTags(src string) ([]string, error) {
 	repo, err := name.NewRepository(src)
 	if err != nil {
