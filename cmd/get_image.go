@@ -54,20 +54,19 @@ var imageCmd = &cobra.Command{
 		}
 
 		internal.FailOnError(err)
-
-		fmt.Printf("%s\n", image)
+		var errcheck error
 		if check {
-			_, _, err = image.Desc()
-			if err != nil {
-				slog.Debug("Image not found in registry", "image", image)
-				rev, err1 := gitMain.GetHeadRevision()
-				internal.FailOnError(err1)
-				image.Tag = rev.GetVersion()
-				fmt.Println(image)
-				os.Exit(1)
-			}
-		}
+			_, _, errcheck = image.Desc()
 
+		}
+		if errcheck != nil {
+			slog.Debug("Image not found in registry", "image", image)
+			rev, err1 := gitMain.GetHeadRevision()
+			internal.FailOnError(err1)
+			image.Tag = rev.GetVersion()
+			fmt.Println(image)
+			os.Exit(1)
+		}
 		fmt.Println(image)
 	},
 }
