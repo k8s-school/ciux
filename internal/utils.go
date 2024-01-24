@@ -64,9 +64,11 @@ func IsPathInSubdirectory(filePath, subdirectory string) (bool, error) {
 	return strings.HasPrefix(absFilePath, absSubdirectory+string(filepath.Separator)), nil
 }
 
+// IsPathInSubdirectories checks if the given file path is in one of the given subdirectories
+// If subdirectories is empty, it returns true becuase the file path must be in the root directory
 func IsPathInSubdirectories(filePath string, subdirectories []string) (bool, error) {
 	if len(subdirectories) == 0 {
-		return false, fmt.Errorf("invalid arguments: subdirectories=%q", subdirectories)
+		return true, nil
 	}
 	for _, subdirectory := range subdirectories {
 		isInSubdirectory, err := IsPathInSubdirectory(filePath, subdirectory)
@@ -78,6 +80,5 @@ func IsPathInSubdirectories(filePath string, subdirectories []string) (bool, err
 			return true, nil
 		}
 	}
-
 	return false, nil
 }

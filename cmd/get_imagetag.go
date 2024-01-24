@@ -12,7 +12,8 @@ import (
 )
 
 // var pathes []string
-var full bool
+var check bool
+var suffix string
 
 // imageTagCmd represents the revision command
 var imageTagCmd = &cobra.Command{
@@ -40,11 +41,16 @@ var imageTagCmd = &cobra.Command{
 		internal.FailOnError(err)
 		rev, err := gitMain.GetRevision(commit.Hash)
 		internal.FailOnError(err)
-		if full {
+		if check {
 			name, err := gitMain.GetName()
+			if len(suffix) > 0 {
+				name = fmt.Sprintf("%s-%s", name, suffix)
+			}
 			internal.FailOnError(err)
 			imageUrl := fmt.Sprintf("%s/%s:%s", project.ImageRegistry, name, rev.GetVersion())
 			fmt.Printf("%s\n", imageUrl)
+			_, _, err = internal.DescImage(imageUrl)
+			internal.FailOnError(err)
 		} else {
 			fmt.Printf("%s\n", rev.GetVersion())
 		}
@@ -55,7 +61,8 @@ func init() {
 	getCmd.AddCommand(imageTagCmd)
 
 	//imageTagCmd.Flags().StringSliceVarP(&pathes, "pathes", "p", []string{"rootfs"}, "Relative pathes to source code used to build the container image")
-	imageTagCmd.Flags().BoolVarP(&full, "full", "f", false, "Display full image name")
+	imageTagCmd.Flags().BoolVarP(&check, "check", "c", false, "Check if the image is available in the registry")
+	imageTagCmd.Flags().StringVarP(&suffix, "suffix", "p", "", "Suffix to add to the image name")
 }
 
 // Create a golang function which returns the revision of a git repository
