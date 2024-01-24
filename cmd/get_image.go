@@ -18,7 +18,7 @@ var suffix string
 
 // imageCmd represents the revision command
 var imageCmd = &cobra.Command{
-	Use:     "imagetag (REPOSITORY)",
+	Use:     "image (REPOSITORY)",
 	Aliases: []string{"img"},
 	Short:   "Retrieve the version of a container image, based on the source code used to build it",
 	Long: `Retrieve the version of a container image, based on the source code used to build it
