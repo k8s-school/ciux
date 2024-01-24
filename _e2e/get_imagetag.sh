@@ -47,8 +47,9 @@ git_tag="v1.0.0"
 ink "Tag $git_tag"
 git tag -a "$git_tag" -m "Release $git_tag"
 
-ver=$(ciux get image "$git_dir")
-check_equal "$git_tag" "$ver"
+img_url=$(ciux get image "$git_dir")
+expected_img_url="test_url/test_org/$project:$git_tag"
+check_equal "$expected_img_url" "$img_url"
 
 file="$git_dir/hello2.txt"
 ink "Commit $file"
@@ -56,8 +57,8 @@ echo "Hello World" > "$file"
 git add "$file"
 git commit -m "Add $file"
 
-ver=$(ciux get image "$git_dir")
-check_equal "$git_tag" "$ver"
+img_url=$(ciux get image "$git_dir")
+check_equal "$expected_img_url" "$img_url"
 
 file="$git_dir/rootfs/hello3.txt"
 ink "Commit $file"
@@ -65,18 +66,16 @@ echo "Hello World" > "$file"
 git add "$file"
 git commit -m "Add $file"
 
-img_tag=$(ciux get image "$git_dir")
+img_url=$(ciux get image "$git_dir")
 expected_img_tag="$git_tag-2-g$(git rev-parse --short HEAD)"
-check_equal "$expected_img_tag" "$img_tag"
+expected_img_url="test_url/test_org/$project:$expected_img_tag"
+check_equal "$expected_img_url" "$img_url"
 
 ink "Check image url"
 if img_url=$(ciux get image --check "$git_dir")
 then
     ink -r "ciux get image --full failed"
 else
-    expected_img_url="test_url/test_org/$project:$expected_img_tag"
     check_equal "$expected_img_url" "$img_url"
 fi
--
--
 
