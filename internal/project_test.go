@@ -265,3 +265,44 @@ func TestNewProject(t *testing.T) {
 	require.NoError(err)
 	require.Len(project.Dependencies, 2)
 }
+
+// TODO implement test!!!
+func TestGetImage(t *testing.T) {
+	require := require.New(t)
+
+	localGit, _, _, err := prepareTestProject("ciux-getimage-test-")
+	require.NoError(err)
+	root, err := localGit.GetRoot()
+	require.NoError(err)
+	defer os.RemoveAll(root)
+
+	project, err := NewProject(root, "", "")
+	require.NoError(err)
+
+	// Test when checkRegistry is true and image is found in the registry
+	project.ImageRegistry = "test-registry.io"
+	image, found, err := project.GetImage("", true)
+	require.NoError(err)
+	require.True(found)
+	require.Equal("test-registry.io", image.Registry)
+	require.NotEmpty(image.Name)
+	require.NotEmpty(image.Tag)
+
+	// Test when checkRegistry is true and image is not found in the registry
+	project.ImageRegistry = "non-existent-registry.io"
+	image, found, err = project.GetImage("", true)
+	require.NoError(err)
+	require.False(found)
+	require.Equal("non-existent-registry.io", image.Registry)
+	require.NotEmpty(image.Name)
+	require.NotEmpty(image.Tag)
+
+	// Test when checkRegistry is false
+	project.ImageRegistry = "test-registry.io"
+	image, found, err = project.GetImage("", false)
+	require.NoError(err)
+	require.True(found)
+	require.Equal("test-registry.io", image.Registry)
+	require.NotEmpty(image.Name)
+	require.NotEmpty(image.Tag)
+}

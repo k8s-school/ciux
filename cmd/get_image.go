@@ -5,8 +5,6 @@ package cmd
 
 import (
 	"fmt"
-	"log/slog"
-	"os"
 
 	"github.com/k8s-school/ciux/internal"
 	"github.com/spf13/cobra"
@@ -27,47 +25,12 @@ var imageCmd = &cobra.Command{
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		repositoryPath := args[0]
-		var project internal.Project
-		var err error
-		var gitMain *internal.Git
-		project, err = internal.NewProject(repositoryPath, branch, labelSelector)
+		project, err := internal.NewProject(repositoryPath, branch, labelSelector)
 		internal.FailOnError(err)
-		gitMain = project.GitMain
-
-		slog.Debug("Project source directories", "sourcePathes", project.SourcePathes)
-
-		head, err := gitMain.Repository.Head()
-		internal.FailOnError(err)
-		commit, err := internal.FindCodeChange(gitMain.Repository, head.Hash(), project.SourcePathes)
-		internal.FailOnError(err)
-		rev, err := gitMain.GetRevision(commit.Hash)
+		image, inRegistry, err := project.GetImage(suffix, check)
 		internal.FailOnError(err)
 
-		name, err := gitMain.GetName()
-		if len(suffix) > 0 {
-			name = fmt.Sprintf("%s-%s", name, suffix)
-		}
-		image := internal.Image{
-			Registry: project.ImageRegistry,
-			Name:     name,
-			Tag:      rev.GetVersion(),
-		}
-
-		internal.FailOnError(err)
-		var errcheck error
-		if check {
-			_, _, errcheck = image.Desc()
-
-		}
-		if errcheck != nil {
-			slog.Debug("Image not found in registry", "image", image)
-			rev, err1 := gitMain.GetHeadRevision()
-			internal.FailOnError(err1)
-			image.Tag = rev.GetVersion()
-			fmt.Println(image)
-			os.Exit(1)
-		}
-		fmt.Println(image)
+		fmt.Printf("%s %t\n", image, inRegistry)
 	},
 }
 
