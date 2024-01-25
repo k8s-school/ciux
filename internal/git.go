@@ -305,16 +305,6 @@ func IsDirty(s git.Status) bool {
 // GetRevision returns the reference as 'git checkout <hash> && git describe ' would do
 func (g *Git) GetRevision(hash plumbing.Hash) (*GitRevision, error) {
 
-	w, err := g.Repository.Worktree()
-	if err != nil {
-		return nil, fmt.Errorf("unable to find worktree: %v", err)
-	}
-	status, err := w.Status()
-	if err != nil {
-		return nil, fmt.Errorf("unable to find worktree status: %v", err)
-	}
-	dirty := IsDirty(status)
-
 	// Fetch the reference log
 	cIter, err := g.Repository.Log(&git.LogOptions{
 		From:  hash,
@@ -371,7 +361,7 @@ func (g *Git) GetRevision(hash plumbing.Hash) (*GitRevision, error) {
 		Tag:     tagStr,
 		Counter: count,
 		Hash:    hash.String(),
-		Dirty:   dirty,
+		Dirty:   false,
 	}
 	return &rev, nil
 }
@@ -384,6 +374,16 @@ func (g *Git) GetHeadRevision() (*GitRevision, error) {
 		return nil, fmt.Errorf("unable to find head: %v", err)
 	}
 
+	w, err := g.Repository.Worktree()
+	if err != nil {
+		return nil, fmt.Errorf("unable to find worktree: %v", err)
+	}
+	status, err := w.Status()
+	if err != nil {
+		return nil, fmt.Errorf("unable to find worktree status: %v", err)
+	}
+	dirty := IsDirty(status)
+
 	branchName := head.Name().Short()
 	revision, err := g.GetRevision(head.Hash())
 	if err != nil {
@@ -391,6 +391,7 @@ func (g *Git) GetHeadRevision() (*GitRevision, error) {
 	}
 
 	revision.Branch = branchName
+	revision.Dirty = dirty
 	return revision, nil
 }
 
