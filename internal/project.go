@@ -15,22 +15,38 @@ type Project struct {
 	GitMain       *Git
 	SourcePathes  []string
 	ImageRegistry string
+	Image         Image
 	Dependencies  []*Dependency
 	// Required for github actions, which fetch a single commit by default
 	ForcedBranch string
+}
+
+func NewCoreProject(repository_path string, forcedBranch string) (Project, ProjConfig, error) {
+	git, err := NewGit(repository_path)
+	if err != nil {
+		return Project{}, ProjConfig{}, fmt.Errorf("unable to create git repository: %v", err)
+	}
+	config, err := NewConfig(repository_path)
+	if err != nil {
+		return Project{}, ProjConfig{}, fmt.Errorf("unable to read configuration file: %v", err)
+	}
+	p := Project{
+		GitMain:       git,
+		SourcePathes:  config.SourcePathes,
+		ImageRegistry: config.Registry,
+		ForcedBranch:  forcedBranch,
+	}
+	return p, config, nil
 }
 
 // NewProject creates a new Project struct
 // It reads the repository_path/.ciux.yaml configuration file
 // and retrieve the work branch for all dependencies
 func NewProject(repository_path string, forcedBranch string, labelSelector string) (Project, error) {
-	git, err := NewGit(repository_path)
+
+	p, config, err := NewCoreProject(repository_path, forcedBranch)
 	if err != nil {
-		return Project{}, fmt.Errorf("unable to create git repository: %v", err)
-	}
-	config, err := NewConfig(repository_path)
-	if err != nil {
-		return Project{}, fmt.Errorf("unable to read configuration file: %v", err)
+		return Project{}, err
 	}
 
 	selectors := labels.Everything()
@@ -67,14 +83,7 @@ func NewProject(repository_path string, forcedBranch string, labelSelector strin
 		}
 	}
 
-	p := Project{
-		GitMain:       git,
-		SourcePathes:  config.SourcePathes,
-		ImageRegistry: config.Registry,
-		Dependencies:  deps,
-		ForcedBranch:  forcedBranch,
-	}
-
+	p.Dependencies = deps
 	p.scanRemoteDeps()
 	return p, nil
 }
@@ -331,6 +340,24 @@ func (p *Project) WriteOutConfig() (string, error) {
 			return msg, fmt.Errorf("unable to write variable %s_IMAGE to file %s: %v", varName, ciuxConfigFile, err)
 		}
 	}
+	imageRegistry := p.ImageRegistry
+	imageEnv := fmt.Sprintf("export IMAGE_REGISTRY=%s\n", imageRegistry)
+	_, err = f.WriteString(imageEnv)
+	if err != nil {
+		return msg, fmt.Errorf("unable to write variable IMAGE_REGISTRY to file %s: %v", ciuxConfigFile, err)
+	}
+	imageName := p.Image.Name
+	imageEnv = fmt.Sprintf("export IMAGE_NAME=%s\n", imageName)
+	_, err = f.WriteString(imageEnv)
+	if err != nil {
+		return msg, fmt.Errorf("unable to write variable IMAGE_NAME to file %s: %v", ciuxConfigFile, err)
+	}
+	imageTag := p.Image.Tag
+	imageEnv = fmt.Sprintf("export IMAGE_TAG=%s\n", imageTag)
+	_, err = f.WriteString(imageEnv)
+	if err != nil {
+		return msg, fmt.Errorf("unable to write variable IMAGE_TAG to file %s: %v", ciuxConfigFile, err)
+	}
 
 	msg = fmt.Sprintf("Configuration file:\n  %s", ciuxConfigFile)
 	return msg, nil
@@ -389,5 +416,6 @@ func (project *Project) GetImage(suffix string, checkRegistry bool) (Image, bool
 		}
 		image.Tag = rev.GetVersion()
 	}
+	project.Image = image
 	return image, errRegistry == nil, nil
 }

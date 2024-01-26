@@ -56,6 +56,9 @@ var igniteCmd = &cobra.Command{
 		imgMsg = strings.TrimRight(imgMsg, "\n")
 		internal.Infof("Available Images:\n%s", imgMsg)
 
+		_, _, err = project.GetImage(suffix, true)
+		internal.FailOnError(err)
+
 		// Write project configuration file
 		msg, err := project.WriteOutConfig()
 		internal.FailOnError(err)
@@ -68,8 +71,8 @@ func init() {
 
 	// Here you will define your flags and configuration settings.
 	igniteCmd.Flags().BoolVarP(&itest, "itest", "i", false, "install dependencies for runnning integration tests")
-
 	igniteCmd.PersistentFlags().StringVarP(&branch, "branch", "b", "", "current branch for the project, retrieved from git if not specified")
+	igniteCmd.Flags().StringVarP(&suffix, "suffix", "p", "", "Suffix to add to the image name")
 
 	util.AddLabelSelectorFlagVar(igniteCmd, &labelSelector)
 }

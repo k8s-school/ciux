@@ -25,11 +25,10 @@ var imageCmd = &cobra.Command{
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		repositoryPath := args[0]
-		project, err := internal.NewProject(repositoryPath, branch, labelSelector)
+		project, _, err := internal.NewCoreProject(repositoryPath, branch)
 		internal.FailOnError(err)
 		image, inRegistry, err := project.GetImage(suffix, check)
 		internal.FailOnError(err)
-
 		fmt.Printf("%s %t\n", image, inRegistry)
 	},
 }
