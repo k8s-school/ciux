@@ -341,22 +341,22 @@ func (p *Project) WriteOutConfig() (string, error) {
 		}
 	}
 	imageRegistry := p.ImageRegistry
-	imageEnv := fmt.Sprintf("export IMAGE_REGISTRY=%s\n", imageRegistry)
+	imageEnv := fmt.Sprintf("export CIUX_IMAGE_REGISTRY=%s\n", imageRegistry)
 	_, err = f.WriteString(imageEnv)
 	if err != nil {
-		return msg, fmt.Errorf("unable to write variable IMAGE_REGISTRY to file %s: %v", ciuxConfigFile, err)
+		return msg, fmt.Errorf("unable to write variable CIUX_IMAGE_REGISTRY to file %s: %v", ciuxConfigFile, err)
 	}
 	imageName := p.Image.Name
-	imageEnv = fmt.Sprintf("export IMAGE_NAME=%s\n", imageName)
+	imageEnv = fmt.Sprintf("export CIUX_IMAGE_NAME=%s\n", imageName)
 	_, err = f.WriteString(imageEnv)
 	if err != nil {
-		return msg, fmt.Errorf("unable to write variable IMAGE_NAME to file %s: %v", ciuxConfigFile, err)
+		return msg, fmt.Errorf("unable to write variable CIUX_IMAGE_NAME to file %s: %v", ciuxConfigFile, err)
 	}
 	imageTag := p.Image.Tag
-	imageEnv = fmt.Sprintf("export IMAGE_TAG=%s\n", imageTag)
+	imageEnv = fmt.Sprintf("export CIUX_IMAGE_TAG=%s\n", imageTag)
 	_, err = f.WriteString(imageEnv)
 	if err != nil {
-		return msg, fmt.Errorf("unable to write variable IMAGE_TAG to file %s: %v", ciuxConfigFile, err)
+		return msg, fmt.Errorf("unable to write variable CIUX_IMAGE_TAG to file %s: %v", ciuxConfigFile, err)
 	}
 
 	msg = fmt.Sprintf("Configuration file:\n  %s", ciuxConfigFile)
