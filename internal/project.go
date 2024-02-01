@@ -18,7 +18,8 @@ type Project struct {
 	Image         Image
 	Dependencies  []*Dependency
 	// Required for github actions, which fetch a single commit by default
-	ForcedBranch string
+	ForcedBranch      string
+	TemporaryRegistry string
 }
 
 func NewCoreProject(repository_path string, forcedBranch string) (Project, ProjConfig, error) {
@@ -373,26 +374,26 @@ func (p *Project) GetGits() []*Git {
 	return gits
 }
 
-func (project *Project) GetImage(suffix string, checkRegistry bool) (Image, bool, error) {
+func (project *Project) GetImage(suffix string, checkRegistry bool) (Image, error) {
 	gitMain := project.GitMain
 
 	slog.Debug("Project source directories", "sourcePathes", project.SourcePathes)
 
 	head, err := gitMain.Repository.Head()
 	if err != nil {
-		return Image{}, false, fmt.Errorf("unable to get HEAD of repository %s: %v", gitMain.Url, err)
+		return Image{}, fmt.Errorf("unable to get HEAD of repository %s: %v", gitMain.Url, err)
 	}
 	commit, err := FindCodeChange(gitMain.Repository, head.Hash(), project.SourcePathes)
 	if err != nil {
-		return Image{}, false, fmt.Errorf("unable to find code change in repository %s: %v", gitMain.Url, err)
+		return Image{}, fmt.Errorf("unable to find code change in repository %s: %v", gitMain.Url, err)
 	}
 	rev, err := gitMain.GetRevision(commit.Hash)
 	if err != nil {
-		return Image{}, false, fmt.Errorf("unable to describe git repository: %v", err)
+		return Image{}, fmt.Errorf("unable to describe git repository: %v", err)
 	}
 	name, err := gitMain.GetName()
 	if err != nil {
-		return Image{}, false, fmt.Errorf("unable to get project name: %v", err)
+		return Image{}, fmt.Errorf("unable to get project name: %v", err)
 	}
 	if len(suffix) > 0 {
 		name = fmt.Sprintf("%s-%s", name, suffix)
@@ -412,10 +413,15 @@ func (project *Project) GetImage(suffix string, checkRegistry bool) (Image, bool
 		slog.Debug("Image not found in registry", "image", image)
 		rev, err1 := gitMain.GetHeadRevision()
 		if err1 != nil {
-			return Image{}, false, fmt.Errorf("unable to describe git repository: %v", err1)
+			return Image{}, fmt.Errorf("unable to describe git repository: %v", err1)
 		}
 		image.Tag = rev.GetVersion()
 	}
+
+	image.InRegistry = errRegistry == nil
+	if !image.InRegistry && project.TemporaryRegistry != "" {
+		image.Registry = project.TemporaryRegistry
+	}
 	project.Image = image
-	return image, errRegistry == nil, nil
+	return image, nil
 }

@@ -10,13 +10,15 @@ import (
 )
 
 type Image struct {
-	Registry string
-	Name     string
-	Tag      string
+	InRegistry        bool
+	Registry          string
+	Name              string
+	Tag               string
+	TemporaryRegistry string
 }
 
 func (i Image) String() string {
-	return i.Url()
+	return fmt.Sprintf("%s, in registry: %t", i.Url(), i.InRegistry)
 }
 
 func (i Image) Url() string {

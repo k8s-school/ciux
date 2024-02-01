@@ -281,27 +281,27 @@ func TestGetImage(t *testing.T) {
 
 	// Test when checkRegistry is true and image is found in the registry
 	project.ImageRegistry = "test-registry.io"
-	image, found, err := project.GetImage("", true)
+	image, err := project.GetImage("", true)
 	require.NoError(err)
-	require.True(found)
+	require.True(image.InRegistry)
 	require.Equal("test-registry.io", image.Registry)
 	require.NotEmpty(image.Name)
 	require.NotEmpty(image.Tag)
 
 	// Test when checkRegistry is true and image is not found in the registry
 	project.ImageRegistry = "non-existent-registry.io"
-	image, found, err = project.GetImage("", true)
+	image, err = project.GetImage("", true)
 	require.NoError(err)
-	require.False(found)
+	require.False(image.InRegistry)
 	require.Equal("non-existent-registry.io", image.Registry)
 	require.NotEmpty(image.Name)
 	require.NotEmpty(image.Tag)
 
 	// Test when checkRegistry is false
 	project.ImageRegistry = "test-registry.io"
-	image, found, err = project.GetImage("", false)
+	image, err = project.GetImage("", false)
 	require.NoError(err)
-	require.True(found)
+	require.True(image.InRegistry)
 	require.Equal("test-registry.io", image.Registry)
 	require.NotEmpty(image.Name)
 	require.NotEmpty(image.Tag)

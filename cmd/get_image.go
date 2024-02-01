@@ -28,19 +28,16 @@ var imageCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		repositoryPath := args[0]
 		project, _, err := internal.NewCoreProject(repositoryPath, branch)
+		project.TemporaryRegistry = tmpRegistry
 		internal.FailOnError(err)
-		image, inRegistry, err := project.GetImage(suffix, check)
+		image, err := project.GetImage(suffix, check)
 		internal.FailOnError(err)
-
-		if !inRegistry && tmpRegistry != "" {
-			image.Registry = tmpRegistry
-		}
 
 		if env {
 			fmt.Printf("export CIUX_IMAGE_URL=%s\n", image)
-			fmt.Printf("export CIUX_BUILD=%t\n", !inRegistry)
+			fmt.Printf("export CIUX_BUILD=%t\n", !image.InRegistry)
 		} else {
-			fmt.Printf("Image: %s, in-registry %t\n", image, inRegistry)
+			fmt.Printf("Image: %s\n", image)
 		}
 	},
 }
