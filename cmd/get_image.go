@@ -12,7 +12,9 @@ import (
 
 // var pathes []string
 var check bool
+var env bool
 var suffix string
+var tmpRegistry string
 
 // imageCmd represents the revision command
 var imageCmd = &cobra.Command{
@@ -29,7 +31,17 @@ var imageCmd = &cobra.Command{
 		internal.FailOnError(err)
 		image, inRegistry, err := project.GetImage(suffix, check)
 		internal.FailOnError(err)
-		fmt.Printf("%s %t\n", image, inRegistry)
+
+		if !inRegistry && tmpRegistry != "" {
+			image.Registry = tmpRegistry
+		}
+
+		if env {
+			fmt.Printf("export CIUX_IMAGE_URL=%s\n", image)
+			fmt.Printf("export CIUX_BUILD=%t\n", !inRegistry)
+		} else {
+			fmt.Printf("Image: %s, in-registry %t\n", image, inRegistry)
+		}
 	},
 }
 
@@ -39,6 +51,8 @@ func init() {
 	//imageTagCmd.Flags().StringSliceVarP(&pathes, "pathes", "p", []string{"rootfs"}, "Relative pathes to source code used to build the container image")
 	imageCmd.Flags().BoolVarP(&check, "check", "c", false, "Check if an image with same source code is already available in the registry, if not exit with error and print the name of the image to build")
 	imageCmd.Flags().StringVarP(&suffix, "suffix", "p", "", "Suffix to add to the image name")
+	imageCmd.Flags().StringVarP(&tmpRegistry, "tmp-registry", "t", "", "Name of temporary registry used to store the image during the ci process")
+	imageCmd.Flags().BoolVarP(&env, "env", "e", false, "Print environment variables to use the image in the CI process, CIUX_IMAGE_URL and CIUX_BUILD")
 }
 
 // Create a golang function which returns the revision of a git repository
