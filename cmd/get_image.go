@@ -34,7 +34,7 @@ var imageCmd = &cobra.Command{
 		internal.FailOnError(err)
 
 		if env {
-			fmt.Printf("export CIUX_IMAGE_URL=%s\n", image)
+			fmt.Printf("export CIUX_IMAGE_URL=%s\n", image.Url())
 			fmt.Printf("export CIUX_BUILD=%t\n", !image.InRegistry)
 		} else {
 			fmt.Printf("Image: %s\n", image)

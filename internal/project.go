@@ -360,6 +360,17 @@ func (p *Project) WriteOutConfig() (string, error) {
 		return msg, fmt.Errorf("unable to write variable CIUX_IMAGE_TAG to file %s: %v", ciuxConfigFile, err)
 	}
 
+	imageUrl := fmt.Sprintf("export CIUX_IMAGE_URL=%s\n", p.Image.Url())
+	_, err = f.WriteString(imageUrl)
+	if err != nil {
+		return msg, fmt.Errorf("unable to write variable CIUX_IMAGE_URL to file %s: %v", ciuxConfigFile, err)
+	}
+	notInRegistry := fmt.Sprintf("export CIUX_BUILD=%t\n", !p.Image.InRegistry)
+	_, err = f.WriteString(notInRegistry)
+	if err != nil {
+		return msg, fmt.Errorf("unable to write variable CIUX_BUILD to file %s: %v", ciuxConfigFile, err)
+	}
+
 	msg = fmt.Sprintf("Configuration file:\n  %s", ciuxConfigFile)
 	return msg, nil
 }
