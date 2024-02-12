@@ -266,7 +266,6 @@ func TestNewProject(t *testing.T) {
 	require.Len(project.Dependencies, 2)
 }
 
-// TODO implement test!!!
 func TestGetImage(t *testing.T) {
 	require := require.New(t)
 
@@ -279,30 +278,36 @@ func TestGetImage(t *testing.T) {
 	project, err := NewProject(root, "", "")
 	require.NoError(err)
 
-	// Test when checkRegistry is true and image is found in the registry
+	// Test when checkRegistry is true and image is not found in the registry
+	// with no ci internal repository
 	project.ImageRegistry = "test-registry.io"
 	image, err := project.GetImage("", true)
 	require.NoError(err)
-	require.True(image.InRegistry)
+	require.False(image.InRegistry)
 	require.Equal("test-registry.io", image.Registry)
-	require.NotEmpty(image.Name)
-	require.NotEmpty(image.Tag)
+	require.Containsf(image.String(), "ciux-getimage-test-main-", "Invalid name for image %s", image)
+	require.Equal("v1.0.0", image.Tag)
+	t.Logf("Image %s:", image)
 
-	// Test when checkRegistry is true and image is not found in the registry
-	project.ImageRegistry = "non-existent-registry.io"
-	image, err = project.GetImage("", true)
+	// Test when checkRegistry is true and image is notfound in the registry
+	// with ci internal repository*
+	project.TemporaryRegistry = "ci-internal-registry.io"
+	suffix := "noscience"
+	image, err = project.GetImage(suffix, true)
 	require.NoError(err)
 	require.False(image.InRegistry)
-	require.Equal("non-existent-registry.io", image.Registry)
-	require.NotEmpty(image.Name)
-	require.NotEmpty(image.Tag)
+	require.Equal("ci-internal-registry.io", image.Registry)
+
+	require.Containsf(image.String(), "ciux-getimage-test-main-", "Invalid name for image %s", image)
+	require.Containsf(image.String(), "-noscience", "Invalid name for image %s", image)
+	require.Equal("v1.0.0", image.Tag)
+	t.Logf("Image %s:", image)
 
 	// Test when checkRegistry is false
-	project.ImageRegistry = "test-registry.io"
 	image, err = project.GetImage("", false)
 	require.NoError(err)
-	require.True(image.InRegistry)
+	require.False(image.InRegistry)
 	require.Equal("test-registry.io", image.Registry)
 	require.NotEmpty(image.Name)
-	require.NotEmpty(image.Tag)
+	require.Equal("v1.0.0", image.Tag)
 }

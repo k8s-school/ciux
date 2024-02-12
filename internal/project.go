@@ -418,21 +418,23 @@ func (project *Project) GetImage(suffix string, checkRegistry bool) (Image, erro
 	var errRegistry error
 	if checkRegistry {
 		_, _, errRegistry = image.Desc()
-
+	} else {
+		image.InRegistry = false
 	}
+	fmt.Printf("XXXXXXXXXXXXXXXXXXXx Error: %v\n", errRegistry)
 	if errRegistry != nil {
+		image.InRegistry = false
 		slog.Debug("Image not found in registry", "image", image)
 		rev, err1 := gitMain.GetHeadRevision()
 		if err1 != nil {
 			return Image{}, fmt.Errorf("unable to describe git repository: %v", err1)
 		}
 		image.Tag = rev.GetVersion()
+		if project.TemporaryRegistry != "" {
+			image.Registry = project.TemporaryRegistry
+		}
 	}
 
-	image.InRegistry = errRegistry == nil
-	if !image.InRegistry && project.TemporaryRegistry != "" {
-		image.Registry = project.TemporaryRegistry
-	}
 	project.Image = image
 	return image, nil
 }
