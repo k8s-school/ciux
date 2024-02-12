@@ -27,6 +27,7 @@ var igniteCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		repositoryPath := args[0]
 		project, err := internal.NewProject(repositoryPath, branch, labelSelector)
+		project.TemporaryRegistry = tmpRegistry
 		internal.FailOnError(err)
 		depsBasePath := filepath.Dir(repositoryPath)
 

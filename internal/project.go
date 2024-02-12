@@ -421,7 +421,6 @@ func (project *Project) GetImage(suffix string, checkRegistry bool) (Image, erro
 	} else {
 		image.InRegistry = false
 	}
-	fmt.Printf("XXXXXXXXXXXXXXXXXXXx Error: %v\n", errRegistry)
 	if errRegistry != nil {
 		image.InRegistry = false
 		slog.Debug("Image not found in registry", "image", image)
