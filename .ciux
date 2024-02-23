@@ -1,0 +1,8 @@
+apiVersion: v1alpha1
+registry: gitlab-registry.in2p3.fr/astrolabsoftware/fink
+dependencies:
+  - package: github.com/k8s-school/ink@v0.0.1-rc5
+    labels:
+      itest: "optional"
+      ci: "true"
+

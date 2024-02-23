@@ -10,8 +10,9 @@ import (
 
 // revisionCmd represents the revision command
 var revisionCmd = &cobra.Command{
-	Use:   "revision (REPOSITORY) (DEPENDENCY_REPOSITORIES...)",
-	Short: "A brief description of your command",
+	Use:     "revision (REPOSITORY) (DEPENDENCY_REPOSITORIES...)",
+	Aliases: []string{"rev"},
+	Short:   "A brief description of your command",
 	Long: `A longer description that spans multiple lines and likely contains examples
 and usage of using your command. For example:
 
@@ -23,7 +24,7 @@ to quickly create a Cobra application.`,
 		repositoryPath := args[0]
 		gitMeta, err := internal.NewGit(repositoryPath)
 		internal.FailOnError(err)
-		rev, err := gitMeta.GetRevision()
+		rev, err := gitMeta.GetHeadRevision()
 		internal.FailOnError(err)
 		internal.Infof("Revision: %+v", rev)
 	},
@@ -31,18 +32,4 @@ to quickly create a Cobra application.`,
 
 func init() {
 	getCmd.AddCommand(revisionCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
 }
-
-// Create a golang function which returns the revision of a git repository
-// Path: cmd/get_revision.go
-
-// Create a golang function which returns the tag of a git repository
-// Path: cmd/get_tag.go

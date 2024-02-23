@@ -1,4 +1,8 @@
+apiVersion: v1alpha1
 registry: test-registry.io
+sourcePathes:
+  - rootfs
+  - homefs
 dependencies:
   - url: file:///tmp/ciux-dep-test
     # If true repository will be locally cloned

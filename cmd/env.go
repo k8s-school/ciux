@@ -10,13 +10,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// refreshCmd represents the refresh command
-var refreshCmd = &cobra.Command{
-	Use:   "refresh",
-	Short: "Refresh ciux configuration file",
-	Long: `Refresh ciux configuration file using only current local dependencies.
-
-No remote dependencies are used.`,
+// envCmd represents the refresh command
+var envCmd = &cobra.Command{
+	Use:   "env",
+	Short: "Print ciux environment variables",
+	Long:  `Print ciux environment variables for current local dependencies.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		repositoryPath := args[0]
 		project, err := internal.NewProject(repositoryPath, branch, "")
@@ -33,5 +31,5 @@ No remote dependencies are used.`,
 }
 
 func init() {
-	igniteCmd.AddCommand(refreshCmd)
+	igniteCmd.AddCommand(envCmd)
 }

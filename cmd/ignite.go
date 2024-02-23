@@ -27,6 +27,7 @@ var igniteCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		repositoryPath := args[0]
 		project, err := internal.NewProject(repositoryPath, branch, labelSelector)
+		project.TemporaryRegistry = tmpRegistry
 		internal.FailOnError(err)
 		depsBasePath := filepath.Dir(repositoryPath)
 
@@ -56,6 +57,9 @@ var igniteCmd = &cobra.Command{
 		imgMsg = strings.TrimRight(imgMsg, "\n")
 		internal.Infof("Available Images:\n%s", imgMsg)
 
+		_, err = project.GetImage(suffix, true)
+		internal.FailOnError(err)
+
 		// Write project configuration file
 		msg, err := project.WriteOutConfig()
 		internal.FailOnError(err)
@@ -68,8 +72,9 @@ func init() {
 
 	// Here you will define your flags and configuration settings.
 	igniteCmd.Flags().BoolVarP(&itest, "itest", "i", false, "install dependencies for runnning integration tests")
-
 	igniteCmd.PersistentFlags().StringVarP(&branch, "branch", "b", "", "current branch for the project, retrieved from git if not specified")
+	igniteCmd.Flags().StringVarP(&suffix, "suffix", "p", "", "Suffix to add to the image name")
+	igniteCmd.Flags().StringVarP(&tmpRegistry, "tmp-registry", "t", "", "Name of temporary registry used to store the image during the ci process")
 
 	util.AddLabelSelectorFlagVar(igniteCmd, &labelSelector)
 }

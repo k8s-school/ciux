@@ -1,0 +1,2 @@
+--check return image or empty
+ignite add image tag version registry to env

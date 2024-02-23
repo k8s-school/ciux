@@ -13,23 +13,41 @@ import (
 
 type Project struct {
 	GitMain       *Git
+	SourcePathes  []string
 	ImageRegistry string
+	Image         Image
 	Dependencies  []*Dependency
 	// Required for github actions, which fetch a single commit by default
-	ForcedBranch string
+	ForcedBranch      string
+	TemporaryRegistry string
+}
+
+func NewCoreProject(repository_path string, forcedBranch string) (Project, ProjConfig, error) {
+	git, err := NewGit(repository_path)
+	if err != nil {
+		return Project{}, ProjConfig{}, fmt.Errorf("unable to create git repository: %v", err)
+	}
+	config, err := NewConfig(repository_path)
+	if err != nil {
+		return Project{}, ProjConfig{}, fmt.Errorf("unable to read configuration file: %v", err)
+	}
+	p := Project{
+		GitMain:       git,
+		SourcePathes:  config.SourcePathes,
+		ImageRegistry: config.Registry,
+		ForcedBranch:  forcedBranch,
+	}
+	return p, config, nil
 }
 
 // NewProject creates a new Project struct
 // It reads the repository_path/.ciux.yaml configuration file
 // and retrieve the work branch for all dependencies
 func NewProject(repository_path string, forcedBranch string, labelSelector string) (Project, error) {
-	git, err := NewGit(repository_path)
+
+	p, config, err := NewCoreProject(repository_path, forcedBranch)
 	if err != nil {
-		return Project{}, fmt.Errorf("unable to create git repository: %v", err)
-	}
-	config, err := NewConfig(repository_path)
-	if err != nil {
-		return Project{}, fmt.Errorf("unable to read configuration file: %v", err)
+		return Project{}, err
 	}
 
 	selectors := labels.Everything()
@@ -66,13 +84,7 @@ func NewProject(repository_path string, forcedBranch string, labelSelector strin
 		}
 	}
 
-	p := Project{
-		GitMain:       git,
-		ImageRegistry: config.Registry,
-		Dependencies:  deps,
-		ForcedBranch:  forcedBranch,
-	}
-
+	p.Dependencies = deps
 	p.scanRemoteDeps()
 	return p, nil
 }
@@ -83,7 +95,7 @@ func (p *Project) String() string {
 	if err != nil {
 		return fmt.Sprintf("unable to get project name: %v", err)
 	}
-	revMain, err := p.GitMain.GetRevision()
+	revMain, err := p.GitMain.GetHeadRevision()
 	if err != nil {
 		return fmt.Sprintf("unable to describe project repository: %v", err)
 	}
@@ -91,7 +103,7 @@ func (p *Project) String() string {
 	if err != nil {
 		return fmt.Sprintf("unable to get root of project repository: %v", err)
 	}
-	msg := fmt.Sprintf("Project %s\n  %s %+s\n", name, rootMain, revMain.GetVersion())
+	msg := fmt.Sprintf("Project %s\n  %s@%s\n", name, rootMain, revMain.GetVersion())
 	if len(p.Dependencies) != 0 {
 		msg += "Dependencies:"
 		for _, dep := range p.Dependencies {
@@ -103,7 +115,7 @@ func (p *Project) String() string {
 			} else if dep.Git != nil {
 				slog.Debug("Dependency", "url", dep.Git.Url, "branch", dep.Git.WorkBranch)
 				if !dep.Git.isRemoteOnly() {
-					revDep, err := dep.Git.GetRevision()
+					revDep, err := dep.Git.GetHeadRevision()
 					if err != nil {
 						return msg + fmt.Sprintf("unable to describe git repository: %v", err)
 					}
@@ -299,7 +311,7 @@ func (p *Project) WriteOutConfig() (string, error) {
 				return msg, fmt.Errorf("unable to write variable %s to file %s: %v", varName, ciuxConfigFile, err)
 			}
 
-			rev, err := gitObj.GetRevision()
+			rev, err := gitObj.GetHeadRevision()
 			if err != nil {
 				return msg, fmt.Errorf("unable to describe git repository: %v", err)
 			}
@@ -329,6 +341,35 @@ func (p *Project) WriteOutConfig() (string, error) {
 			return msg, fmt.Errorf("unable to write variable %s_IMAGE to file %s: %v", varName, ciuxConfigFile, err)
 		}
 	}
+	imageRegistry := p.ImageRegistry
+	imageEnv := fmt.Sprintf("export CIUX_IMAGE_REGISTRY=%s\n", imageRegistry)
+	_, err = f.WriteString(imageEnv)
+	if err != nil {
+		return msg, fmt.Errorf("unable to write variable CIUX_IMAGE_REGISTRY to file %s: %v", ciuxConfigFile, err)
+	}
+	imageName := p.Image.Name
+	imageEnv = fmt.Sprintf("export CIUX_IMAGE_NAME=%s\n", imageName)
+	_, err = f.WriteString(imageEnv)
+	if err != nil {
+		return msg, fmt.Errorf("unable to write variable CIUX_IMAGE_NAME to file %s: %v", ciuxConfigFile, err)
+	}
+	imageTag := p.Image.Tag
+	imageEnv = fmt.Sprintf("export CIUX_IMAGE_TAG=%s\n", imageTag)
+	_, err = f.WriteString(imageEnv)
+	if err != nil {
+		return msg, fmt.Errorf("unable to write variable CIUX_IMAGE_TAG to file %s: %v", ciuxConfigFile, err)
+	}
+
+	imageUrl := fmt.Sprintf("export CIUX_IMAGE_URL=%s\n", p.Image.Url())
+	_, err = f.WriteString(imageUrl)
+	if err != nil {
+		return msg, fmt.Errorf("unable to write variable CIUX_IMAGE_URL to file %s: %v", ciuxConfigFile, err)
+	}
+	notInRegistry := fmt.Sprintf("export CIUX_BUILD=%t\n", !p.Image.InRegistry)
+	_, err = f.WriteString(notInRegistry)
+	if err != nil {
+		return msg, fmt.Errorf("unable to write variable CIUX_BUILD to file %s: %v", ciuxConfigFile, err)
+	}
 
 	msg = fmt.Sprintf("Configuration file:\n  %s", ciuxConfigFile)
 	return msg, nil
@@ -342,4 +383,59 @@ func (p *Project) GetGits() []*Git {
 		}
 	}
 	return gits
+}
+
+func (project *Project) GetImage(suffix string, checkRegistry bool) (Image, error) {
+	gitMain := project.GitMain
+
+	slog.Debug("Project source directories", "sourcePathes", project.SourcePathes)
+
+	head, err := gitMain.Repository.Head()
+	if err != nil {
+		return Image{}, fmt.Errorf("unable to get HEAD of repository %s: %v", gitMain.Url, err)
+	}
+	commit, err := FindCodeChange(gitMain.Repository, head.Hash(), project.SourcePathes)
+	if err != nil {
+		return Image{}, fmt.Errorf("unable to find code change in repository %s: %v", gitMain.Url, err)
+	}
+	rev, err := gitMain.GetRevision(commit.Hash)
+	if err != nil {
+		return Image{}, fmt.Errorf("unable to describe git repository: %v", err)
+	}
+	name, err := gitMain.GetName()
+	if err != nil {
+		return Image{}, fmt.Errorf("unable to get project name: %v", err)
+	}
+	if len(suffix) > 0 {
+		name = fmt.Sprintf("%s-%s", name, suffix)
+	}
+	image := Image{
+		Registry: project.ImageRegistry,
+		Name:     name,
+		Tag:      rev.GetVersion(),
+	}
+
+	var errRegistry error
+	if checkRegistry {
+		_, _, errRegistry = image.Desc()
+		if errRegistry != nil {
+			image.InRegistry = false
+			slog.Debug("Image not found in registry", "image", image)
+			rev, err1 := gitMain.GetHeadRevision()
+			if err1 != nil {
+				return Image{}, fmt.Errorf("unable to describe git repository: %v", err1)
+			}
+			image.Tag = rev.GetVersion()
+			if project.TemporaryRegistry != "" {
+				image.Registry = project.TemporaryRegistry
+			}
+		} else {
+			image.InRegistry = true
+		}
+	} else {
+		image.InRegistry = false
+	}
+
+	project.Image = image
+	return image, nil
 }
