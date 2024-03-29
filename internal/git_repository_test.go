@@ -121,15 +121,29 @@ func TestFindCodeChange(t *testing.T) {
 	rootfs := "rootfs"
 	err = os.MkdirAll(filepath.Join(root, rootfs), 0755)
 	require.NoError(err)
-	_, _, err = gitObj.TaggedCommit("file1.txt", "commit1", "v1.0.0", true, author)
+	hash1, _, err := gitObj.TaggedCommit("rootfs/file1.txt", "commit1", "v1.0.0", true, author)
 	require.NoError(err)
 
-	hash2, _, err := gitObj.TaggedCommit("file2.txt", "commit2", "v2.0.0", true, author)
+	hash2, _, err := gitObj.TaggedCommit("rootfs/file2.txt", "commit2", "v2.0.0", true, author)
 	require.NoError(err)
 
-	// Get the latest commit with code change for a specific file
-	latestCommit, err := FindCodeChange(repo, *hash2, []string{""})
+	hash3, _, err := gitObj.TaggedCommit("file3.txt", "commit3", "v3.0.0", true, author)
 	require.NoError(err)
-	require.Equal(*hash2, latestCommit.Hash)
 
+	hash4, _, err := gitObj.TaggedCommit("file4.txt", "commit4", "v4.0.0", true, author)
+	require.NoError(err)
+
+	// Test case 1: latest commit with code change is the latest commit
+	firstChangeCommitHash, inBetweenCommits, err := FindCodeChange(repo, *hash1, []string{"rootfs"})
+	require.NoError(err)
+	require.Equal(*hash1, firstChangeCommitHash)
+	require.Len(inBetweenCommits, 0)
+
+	// Test case 2: latest commit with code change is not the latest commit
+	firstChangeCommitHash, inBetweenCommits, err = FindCodeChange(repo, *hash4, []string{"rootfs"})
+	require.NoError(err)
+	require.Equal(*hash2, firstChangeCommitHash)
+	require.Len(inBetweenCommits, 2)
+	require.Contains(inBetweenCommits, *hash3)
+	require.Contains(inBetweenCommits, *hash4)
 }

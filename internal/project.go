@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/k8s-school/ciux/log"
 	"k8s.io/apimachinery/pkg/labels"
@@ -385,6 +386,10 @@ func (p *Project) GetGits() []*Git {
 	return gits
 }
 
+// GetImage compute the name and tag for the project image
+//
+//	a suffix can be added
+//	image existence in the registry can be checked
 func (project *Project) GetImage(suffix string, checkRegistry bool) (Image, error) {
 	gitMain := project.GitMain
 
@@ -394,11 +399,11 @@ func (project *Project) GetImage(suffix string, checkRegistry bool) (Image, erro
 	if err != nil {
 		return Image{}, fmt.Errorf("unable to get HEAD of repository %s: %v", gitMain.Url, err)
 	}
-	commit, err := FindCodeChange(gitMain.Repository, head.Hash(), project.SourcePathes)
+	hash, _, err := FindCodeChange(gitMain.Repository, head.Hash(), project.SourcePathes)
 	if err != nil {
 		return Image{}, fmt.Errorf("unable to find code change in repository %s: %v", gitMain.Url, err)
 	}
-	rev, err := gitMain.GetRevision(commit.Hash)
+	rev, err := gitMain.GetRevision(hash)
 	if err != nil {
 		return Image{}, fmt.Errorf("unable to describe git repository: %v", err)
 	}
@@ -437,5 +442,28 @@ func (project *Project) GetImage(suffix string, checkRegistry bool) (Image, erro
 	}
 
 	project.Image = image
+	return image, nil
+}
+
+// searchImages search in an image exist in the registry for a commit in-between the HEAD
+// and the last ancestor commit where the source code has changed
+// TODO TEST!!!
+func (project *Project) searchImages(imageName string, commit *object.Commit) (Image, error) {
+	gitMain := project.GitMain
+	rev, err := gitMain.GetRevision(commit.Hash)
+	if err != nil {
+		return Image{}, fmt.Errorf("unable to describe git repository: %v", err)
+	}
+	image := Image{
+		Registry: project.ImageRegistry,
+		Name:     imageName,
+		Tag:      rev.GetVersion(),
+	}
+	_, _, errRegistry := image.Desc()
+	if errRegistry != nil {
+		image.InRegistry = false
+	} else {
+		image.InRegistry = true
+	}
 	return image, nil
 }
