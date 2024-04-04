@@ -7,11 +7,9 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/k8s-school/ciux/log"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
@@ -134,18 +132,14 @@ func setupTestProject(pattern string) (Git, []Git, ProjConfig, error) {
 	}
 
 	// Commit the changes to the repository
-	commit, err := worktree.Commit("Initial commit", &git.CommitOptions{})
+	commit, err := worktree.Commit("Initial commit", &git.CommitOptions{Author: &author})
 	if err != nil {
 		return Git{}, []Git{}, ProjConfig{}, err
 	}
 
 	// Create a new tag for the commit
 	_, err = gitMeta.Repository.CreateTag("v1.0.0", commit, &git.CreateTagOptions{
-		Tagger: &object.Signature{
-			Name:  "Test User",
-			Email: "test@example.com",
-			When:  time.Now(),
-		},
+		Tagger:  &author,
 		Message: "Test tag",
 	})
 	if err != nil {

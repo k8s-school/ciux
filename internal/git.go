@@ -504,9 +504,9 @@ func (repo *Git) TaggedCommit(filename string, message string, tag string, annot
 
 	slog.Debug("Create tag", "tag", tag)
 
-	var tagOpts *git.CreateTagOptions = nil
+	var tagOpts *git.CreateTagOptions
 	if annotatedTag {
-		tagOpts = &git.CreateTagOptions{Message: tag}
+		tagOpts = &git.CreateTagOptions{Tagger: &author, Message: tag}
 	}
 
 	tag1, err := repo.Repository.CreateTag(tag, commit1, tagOpts)
