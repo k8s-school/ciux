@@ -20,7 +20,7 @@ import (
 )
 
 var finkBrokerRepoUrl = "https://github.com/astrolabsoftware/fink-broker"
-var finkBrokerRegistryURL = "registry.gitlab.com/astrolabsoftware/fink-broker"
+var finkBrokerRegistryURL = "gitlab-registry.in2p3.fr/astrolabsoftware/fink"
 
 func setupFinkBrokerProject() (Project, error) {
 	// Test with fink-broker repository
