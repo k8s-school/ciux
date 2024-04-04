@@ -37,7 +37,6 @@ git add "$file"
 git commit -m "Add $file"
 ciux ignite "$git_dir" --selector "itest=true"
 
-
 file="$git_dir/rootfs/hello.txt"
 ink "Commit $file"
 echo "Hello World" > "$file"
@@ -49,7 +48,7 @@ ink "Tag $git_tag"
 git tag -a "$git_tag" -m "Release $git_tag"
 
 img_url=$(ciux get image "$git_dir")
-expected_img_url="test_url/test_org/$project:$git_tag"
+expected_img_url="Image: test_url/test_org/$project:$git_tag"
 check_equal "$expected_img_url" "$img_url"
 
 file="$git_dir/hello2.txt"
@@ -68,7 +67,7 @@ git add "$file"
 git commit -m "Add $file"
 
 img_url=$(ciux get image "$git_dir")
-expected_img_tag="$git_tag-2-g$(git rev-parse --short HEAD)"
+expected_img_tag="Image: $git_tag-2-g$(git rev-parse --short HEAD)"
 expected_img_url="test_url/test_org/$project:$expected_img_tag"
 check_equal "$expected_img_url" "$img_url"
 
