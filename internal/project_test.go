@@ -10,14 +10,42 @@ import (
 	"time"
 
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/k8s-school/ciux/log"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
 )
 
-func prepareTestProject(pattern string) (Git, []Git, ProjConfig, error) {
+var finkBrokerRepoUrl = "https://github.com/astrolabsoftware/fink-broker"
+var finkBrokerRegistryURL = "registry.gitlab.com/astrolabsoftware/fink-broker"
+
+func setupFinkBrokerProject() (Project, error) {
+	// Test with fink-broker repository
+	gitObj := &Git{
+		Url:        finkBrokerRepoUrl,
+		WorkBranch: "master",
+	}
+	err := gitObj.CloneOrOpen("", true)
+	if err != nil {
+		return Project{}, err
+	}
+	root, err := gitObj.GetRoot()
+	if err != nil {
+		return Project{}, err
+	}
+
+	project, err := NewProject(root, "", "")
+	project.ImageRegistry = finkBrokerRegistryURL
+	if err != nil {
+		return Project{}, err
+	}
+	return project, nil
+}
+
+func setupTestProject(pattern string) (Git, []Git, ProjConfig, error) {
 
 	// Create a temporary directory for the project git repository
 	gitMeta, err := initGitRepo(pattern + "main-")
@@ -135,7 +163,7 @@ func prepareTestProject(pattern string) (Git, []Git, ProjConfig, error) {
 func TestScanRemoteDeps(t *testing.T) {
 	require := require.New(t)
 
-	localGit, remoteGitDeps, _, err := prepareTestProject("ciux-scanremotedeps-test-")
+	localGit, remoteGitDeps, _, err := setupTestProject("ciux-scanremotedeps-test-")
 	require.NoError(err)
 	root, err := localGit.GetRoot()
 	require.NoError(err)
@@ -171,7 +199,7 @@ func TestScanRemoteDeps(t *testing.T) {
 func TestWriteOutConfig(t *testing.T) {
 	require := require.New(t)
 
-	localGit, _, _, err := prepareTestProject("ciux-writeoutconfig-test-")
+	localGit, _, _, err := setupTestProject("ciux-writeoutconfig-test-")
 	require.NoError(err)
 	root, err := localGit.GetRoot()
 	require.NoError(err)
@@ -230,7 +258,7 @@ func TestNewProject(t *testing.T) {
 	require := require.New(t)
 
 	patternDir := "ciux-newproject-test-"
-	localGit, _, projConfig, err := prepareTestProject(patternDir)
+	localGit, _, projConfig, err := setupTestProject(patternDir)
 	require.NoError(err)
 	repoDir, err := localGit.GetRoot()
 	require.NoError(err)
@@ -266,10 +294,13 @@ func TestNewProject(t *testing.T) {
 	require.Len(project.Dependencies, 2)
 }
 
-func TestGetImage(t *testing.T) {
+func TestGetImageName(t *testing.T) {
 	require := require.New(t)
 
-	localGit, _, _, err := prepareTestProject("ciux-getimage-test-")
+	registry := "test-registry.io"
+	ciRegistry := "ci-internal-registry.io"
+
+	localGit, _, _, err := setupTestProject("ciux-getimage-test-")
 	require.NoError(err)
 	root, err := localGit.GetRoot()
 	require.NoError(err)
@@ -280,23 +311,23 @@ func TestGetImage(t *testing.T) {
 
 	// Test when checkRegistry is true and image is not found in the registry
 	// with no ci internal repository
-	project.ImageRegistry = "test-registry.io"
-	image, err := project.GetImage("", true)
+	project.ImageRegistry = registry
+	image, err := project.GetImageName("", true)
 	require.NoError(err)
 	require.False(image.InRegistry)
-	require.Equal("test-registry.io", image.Registry)
+	require.Equal(registry, image.Registry, "Invalid registr for image %s", image)
 	require.Containsf(image.String(), "ciux-getimage-test-main-", "Invalid name for image %s", image)
 	require.Equal("v1.0.0", image.Tag)
 	t.Logf("Image %s:", image)
 
 	// Test when checkRegistry is true and image is notfound in the registry
 	// with ci internal repository*
-	project.TemporaryRegistry = "ci-internal-registry.io"
+	project.TemporaryRegistry = ciRegistry
 	suffix := "noscience"
-	image, err = project.GetImage(suffix, true)
+	image, err = project.GetImageName(suffix, true)
 	require.NoError(err)
 	require.False(image.InRegistry)
-	require.Equal("ci-internal-registry.io", image.Registry)
+	require.Equal(ciRegistry, image.Registry)
 
 	require.Containsf(image.String(), "ciux-getimage-test-main-", "Invalid name for image %s", image)
 	require.Containsf(image.String(), "-noscience", "Invalid name for image %s", image)
@@ -304,10 +335,68 @@ func TestGetImage(t *testing.T) {
 	t.Logf("Image %s:", image)
 
 	// Test when checkRegistry is false
-	image, err = project.GetImage("", false)
+	image, err = project.GetImageName("", false)
 	require.NoError(err)
 	require.False(image.InRegistry)
-	require.Equal("test-registry.io", image.Registry)
+	require.Equal(ciRegistry, image.Registry)
 	require.NotEmpty(image.Name)
 	require.Equal("v1.0.0", image.Tag)
+}
+
+func TestGetImageNameFinkBroker(t *testing.T) {
+	require := require.New(t)
+
+	project, err := setupFinkBrokerProject()
+	require.NoError(err)
+
+	w, err := project.GitMain.Repository.Worktree()
+	require.NoError(err)
+
+	// Test when image is found in the registry for the current commit
+	hash := "655447f544bc4e26ea0c5d23d35ac4772d20ed73"
+	err = w.Checkout(&git.CheckoutOptions{
+		Hash: plumbing.NewHash(hash),
+	})
+	require.NoError(err)
+	image, err := project.GetImageName("no-science", false)
+	t.Logf("Image %s:", image)
+	require.NoError(err)
+	require.False(image.InRegistry)
+	//require.Equal(ciRegistry, image.Registry)
+	require.NotEmpty(image.Name)
+	require.Equal("v3.1.1-rc1-7-g655447f", image.Tag)
+}
+
+// WARNING: This test is not deterministic because it depends on the availability of the registry and of the fink-broker github repository
+func TestFindInRegistryImage(t *testing.T) {
+
+	require := require.New(t)
+
+	log.Init(3)
+
+	project, err := setupFinkBrokerProject()
+	require.NoError(err)
+
+	// Test when image is found in the registry
+	imageName := "fink-broker-noscience"
+	hashes := []plumbing.Hash{
+		// The hashes are the first 2 commits of the fink-broker repository
+		plumbing.NewHash("00bdb0af525af5ac3fd0445ce31683ead75d68f5"),
+		plumbing.NewHash("1f34ce22f8648f0e85e34b15e4ca1633b63092b5"),
+		// This hash has a corresponding image in the fink-broker repository
+		plumbing.NewHash("655447f544bc4e26ea0c5d23d35ac4772d20ed73"),
+	}
+	image, err := project.findInRegistryImage(imageName, hashes)
+	require.NoError(err)
+	require.NotNil(image)
+	require.True(image.InRegistry)
+	require.Equal(project.ImageRegistry, image.Registry)
+	require.Equal(imageName, image.Name)
+	require.Equal("v3.1.1-rc1-7-g655447f", image.Tag)
+
+	// Test when image is not found in the registry
+	imageName = "non-existent-image"
+	image, err = project.findInRegistryImage(imageName, hashes)
+	require.NoError(err)
+	require.Nil(image)
 }

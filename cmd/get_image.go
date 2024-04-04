@@ -30,7 +30,7 @@ var imageCmd = &cobra.Command{
 		project, _, err := internal.NewCoreProject(repositoryPath, branch)
 		project.TemporaryRegistry = tmpRegistry
 		internal.FailOnError(err)
-		image, err := project.GetImage(suffix, check)
+		image, err := project.GetImageName(suffix, check)
 		internal.FailOnError(err)
 
 		if env {

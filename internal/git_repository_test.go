@@ -133,17 +133,25 @@ func TestFindCodeChange(t *testing.T) {
 	hash4, _, err := gitObj.TaggedCommit("file4.txt", "commit4", "v4.0.0", true, author)
 	require.NoError(err)
 
-	// Test case 1: latest commit with code change is the latest commit
-	firstChangeCommitHash, inBetweenCommits, err := FindCodeChange(repo, *hash1, []string{"rootfs"})
+	// Test case: only one commit in the repository
+	hashes, err := FindCodeChange(repo, *hash1, []string{"rootfs"})
 	require.NoError(err)
-	require.Equal(*hash1, firstChangeCommitHash)
-	require.Len(inBetweenCommits, 0)
+	require.Equal(*hash1, hashes[0])
+	require.Len(hashes, 1)
 
-	// Test case 2: latest commit with code change is not the latest commit
-	firstChangeCommitHash, inBetweenCommits, err = FindCodeChange(repo, *hash4, []string{"rootfs"})
+	// Test case: latest commit with code change is the latest commit
+	hashes, err = FindCodeChange(repo, *hash2, []string{"rootfs"})
 	require.NoError(err)
-	require.Equal(*hash2, firstChangeCommitHash)
-	require.Len(inBetweenCommits, 2)
-	require.Contains(inBetweenCommits, *hash3)
-	require.Contains(inBetweenCommits, *hash4)
+	require.Equal(*hash2, hashes[0])
+	require.Len(hashes, 1)
+
+	// Test case: latest commit with code change is not the latest commit
+	hashes, err = FindCodeChange(repo, *hash4, []string{"rootfs"})
+	require.NoError(err)
+	require.Equal(*hash2, hashes[0])
+	t.Log(hash3)
+	t.Log(hash4)
+	require.Len(hashes, 3)
+	require.Contains(hashes, *hash3)
+	require.Contains(hashes, *hash4)
 }

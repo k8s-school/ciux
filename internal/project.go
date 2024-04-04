@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/k8s-school/ciux/log"
 	"k8s.io/apimachinery/pkg/labels"
@@ -355,7 +355,12 @@ func (p *Project) WriteOutConfig() (string, error) {
 		return msg, fmt.Errorf("unable to write variable CIUX_IMAGE_NAME to file %s: %v", ciuxConfigFile, err)
 	}
 	imageTag := p.Image.Tag
-	imageEnv = fmt.Sprintf("export CIUX_IMAGE_TAG=%s\n", imageTag)
+	prefix, err := p.GitMain.GetEnVarPrefix()
+	if err != nil {
+		return msg, fmt.Errorf("unable to get environment variable prefix for project main git repository: %v", err)
+	}
+	imageEnv = fmt.Sprintf("# Similar to %s_VERSION\n", prefix)
+	imageEnv += fmt.Sprintf("export CIUX_IMAGE_TAG=%s\n", imageTag)
 	_, err = f.WriteString(imageEnv)
 	if err != nil {
 		return msg, fmt.Errorf("unable to write variable CIUX_IMAGE_TAG to file %s: %v", ciuxConfigFile, err)
@@ -386,11 +391,12 @@ func (p *Project) GetGits() []*Git {
 	return gits
 }
 
-// GetImage compute the name and tag for the project image
+// GetImageName compute the name and tag for the project image
 //
-//	a suffix can be added
+//	it checks the git repository for changes
+//	a suffix can be added to image name
 //	image existence in the registry can be checked
-func (project *Project) GetImage(suffix string, checkRegistry bool) (Image, error) {
+func (project *Project) GetImageName(suffix string, checkRegistry bool) (Image, error) {
 	gitMain := project.GitMain
 
 	slog.Debug("Project source directories", "sourcePathes", project.SourcePathes)
@@ -399,41 +405,36 @@ func (project *Project) GetImage(suffix string, checkRegistry bool) (Image, erro
 	if err != nil {
 		return Image{}, fmt.Errorf("unable to get HEAD of repository %s: %v", gitMain.Url, err)
 	}
-	hash, _, err := FindCodeChange(gitMain.Repository, head.Hash(), project.SourcePathes)
+	hashes, err := FindCodeChange(gitMain.Repository, head.Hash(), project.SourcePathes)
 	if err != nil {
 		return Image{}, fmt.Errorf("unable to find code change in repository %s: %v", gitMain.Url, err)
 	}
-	rev, err := gitMain.GetRevision(hash)
-	if err != nil {
-		return Image{}, fmt.Errorf("unable to describe git repository: %v", err)
+	if len(hashes) != 0 {
+		rev, err := gitMain.GetRevision(hashes[0])
+		if err != nil {
+			return Image{}, fmt.Errorf("unable to describe git repository: %v", err)
+		}
+		slog.Info("Project image with latest code changes", "hash", hashes[0], "version", rev.GetVersion())
 	}
-	name, err := gitMain.GetName()
+	imageName, err := gitMain.GetName()
 	if err != nil {
 		return Image{}, fmt.Errorf("unable to get project name: %v", err)
 	}
 	if len(suffix) > 0 {
-		name = fmt.Sprintf("%s-%s", name, suffix)
-	}
-	image := Image{
-		Registry: project.ImageRegistry,
-		Name:     name,
-		Tag:      rev.GetVersion(),
+		imageName = fmt.Sprintf("%s-%s", imageName, suffix)
 	}
 
-	var errRegistry error
+	image := Image{
+		Registry: project.ImageRegistry,
+		Name:     imageName,
+	}
 	if checkRegistry {
-		_, _, errRegistry = image.Desc()
-		if errRegistry != nil {
+		inRegistryImage, err := project.findInRegistryImage(imageName, hashes)
+		// NOTE: it is difficult to filter the error here (network, image not exist, etc...)
+		// so in case of error we consider the image not in the registry
+		if inRegistryImage == nil || err != nil {
 			image.InRegistry = false
 			slog.Debug("Image not found in registry", "image", image)
-			rev, err1 := gitMain.GetHeadRevision()
-			if err1 != nil {
-				return Image{}, fmt.Errorf("unable to describe git repository: %v", err1)
-			}
-			image.Tag = rev.GetVersion()
-			if project.TemporaryRegistry != "" {
-				image.Registry = project.TemporaryRegistry
-			}
 		} else {
 			image.InRegistry = true
 		}
@@ -441,29 +442,48 @@ func (project *Project) GetImage(suffix string, checkRegistry bool) (Image, erro
 		image.InRegistry = false
 	}
 
+	if !image.InRegistry {
+		rev, err1 := gitMain.GetHeadRevision()
+		if err1 != nil {
+			return Image{}, fmt.Errorf("unable to describe git repository: %v", err1)
+		}
+		image.Tag = rev.GetVersion()
+		if project.TemporaryRegistry != "" {
+			image.Registry = project.TemporaryRegistry
+		}
+	}
+
 	project.Image = image
 	return image, nil
 }
 
-// searchImages search in an image exist in the registry for a commit in-between the HEAD
-// and the last ancestor commit where the source code has changed
-// TODO TEST!!!
-func (project *Project) searchImages(imageName string, commit *object.Commit) (Image, error) {
+// findInRegistryImage returns the first image which exist in the registry for a commit hash which is in hashes[]
+func (project *Project) findInRegistryImage(imageName string, hashes []plumbing.Hash) (*Image, error) {
 	gitMain := project.GitMain
-	rev, err := gitMain.GetRevision(commit.Hash)
-	if err != nil {
-		return Image{}, fmt.Errorf("unable to describe git repository: %v", err)
-	}
 	image := Image{
 		Registry: project.ImageRegistry,
 		Name:     imageName,
-		Tag:      rev.GetVersion(),
 	}
-	_, _, errRegistry := image.Desc()
-	if errRegistry != nil {
-		image.InRegistry = false
+
+	for _, hash := range hashes {
+		rev, err := gitMain.GetRevision(hash)
+		if err != nil {
+			return nil, fmt.Errorf("unable to describe git repository for commit %v: %v", hash, err)
+		}
+		image.Tag = rev.GetVersion()
+		slog.Debug("Check image in registry", "image", image)
+		_, _, errRegistry := image.Desc()
+		if errRegistry != nil {
+			image.InRegistry = false
+		} else {
+			slog.Debug("Found image in registry", "image", image)
+			image.InRegistry = true
+			break
+		}
+	}
+	if image.InRegistry {
+		return &image, nil
 	} else {
-		image.InRegistry = true
+		return nil, nil
 	}
-	return image, nil
 }

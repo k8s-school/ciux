@@ -24,8 +24,17 @@ func TestDescImage(t *testing.T) {
 	require.Equal("index.docker.io/library/alpine:3.18.3", ref.Name())
 	t.Logf("Alpine ref %+v", ref)
 
-	_, ref, err = DescImage("docker.io/library/alpine:3.18.3:notexist")
+	_, ref, err = DescImage("docker.io/library/alpine:notexist")
 	require.Error(err)
+	// Check error type TODO
+	t.Logf("Error %v", err)
+	// switch t := err.(type) {
+	// default:
+	// 	fmt.Println("not a model missing error", t)
+	// case *Error:
+	// 	fmt.Println("ModelMissingError", t)
+	// }
+	// t.Logf("Error %v", err.(type))
 	require.Nil(ref)
 }
 func TestGetImgEnVarPrefix(t *testing.T) {

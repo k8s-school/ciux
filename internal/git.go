@@ -154,6 +154,10 @@ func (gitObj *Git) OpenIfExists(destBasePath string) error {
 	return nil
 }
 
+// CloneOrOpen clones a git repository or opens it if it already exists
+// destBasePath is the base path where the repository will be cloned,
+// if empty a temporary directory is created
+// if singleBranch is true, only the work branch is cloned
 func (gitObj *Git) CloneOrOpen(destBasePath string, singleBranch bool) error {
 	name, err := gitObj.GetName()
 	if err != nil {
@@ -186,7 +190,7 @@ func (gitObj *Git) CloneOrOpen(destBasePath string, singleBranch bool) error {
 		SingleBranch:  singleBranch,
 		Progress:      progress,
 	}
-	// TODO check if repository already exists, then try to open it else clone it
+	// Check if repository already exists, then try to open it else clone it
 	repository, err := git.PlainClone(destPath, false, options)
 	if err == git.ErrRepositoryAlreadyExists {
 		gitObj.InPlace = true
