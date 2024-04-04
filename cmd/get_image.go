@@ -22,8 +22,13 @@ var imageCmd = &cobra.Command{
 	Aliases: []string{"img"},
 	Short:   "Retrieve the version of a container image, based on the source code used to build it",
 	Long: `Retrieve the version of a container image, based on the source code used to build it
-	  Use --pathes to specify the pathes to source code used to build the container image
-	  this pathes are relatives and must be used in the image's Dockerfile COPY/ADD commands`,
+If source code has not been modified in the current commit, ciux will return an previously built image with the current code if this image is available in the registry
+- Use "sourcePathes" in the .ciux configuration file to specify the pathes to source code used to build the container image
+this pathes are relatives and must be used in the image's Dockerfile COPY/ADD commands
+- Use "registry" in the .ciux configuration file to specify the registry where the image is stored`,
+	Example: `# Check if image registry/<project_name>-<image-suffix>:<tag> exists
+# tag is in the format vX.Y.Z[-rcT]-N-g<short-commit-hash>
+ciux get image --check <path_to_git_repository> --suffix <image_suffix>`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		repositoryPath := args[0]
