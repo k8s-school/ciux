@@ -57,7 +57,7 @@ var igniteCmd = &cobra.Command{
 		imgMsg = strings.TrimRight(imgMsg, "\n")
 		internal.Infof("Available Images:\n%s", imgMsg)
 
-		_, err = project.GetImageName(suffix, true)
+		err = project.GetImageName(suffix, true)
 		internal.FailOnError(err)
 
 		// Write project configuration file

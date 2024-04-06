@@ -306,8 +306,9 @@ func TestGetImageName(t *testing.T) {
 	// Test when checkRegistry is true and image is not found in the registry
 	// with no ci internal repository
 	project.ImageRegistry = registry
-	image, err := project.GetImageName("", true)
+	err = project.GetImageName("", true)
 	require.NoError(err)
+	image := project.Image
 	require.False(image.InRegistry)
 	require.Equal(registry, image.Registry, "Invalid registr for image %s", image)
 	require.Containsf(image.String(), "ciux-getimage-test-main-", "Invalid name for image %s", image)
@@ -318,8 +319,9 @@ func TestGetImageName(t *testing.T) {
 	// with ci internal repository*
 	project.TemporaryRegistry = ciRegistry
 	suffix := "noscience"
-	image, err = project.GetImageName(suffix, true)
+	err = project.GetImageName(suffix, true)
 	require.NoError(err)
+	image = project.Image
 	require.False(image.InRegistry)
 	require.Equal(ciRegistry, image.Registry)
 
@@ -329,8 +331,9 @@ func TestGetImageName(t *testing.T) {
 	t.Logf("Image %s:", image)
 
 	// Test when checkRegistry is false
-	image, err = project.GetImageName("", false)
+	err = project.GetImageName("", false)
 	require.NoError(err)
+	image = project.Image
 	require.False(image.InRegistry)
 	require.Equal(ciRegistry, image.Registry)
 	require.NotEmpty(image.Name)
@@ -352,9 +355,10 @@ func TestGetImageNameFinkBroker(t *testing.T) {
 		Hash: plumbing.NewHash(hash),
 	})
 	require.NoError(err)
-	image, err := project.GetImageName("no-science", false)
-	t.Logf("Image %s:", image)
+	err = project.GetImageName("no-science", false)
 	require.NoError(err)
+	image := project.Image
+	t.Logf("Image %s:", image)
 	require.False(image.InRegistry)
 	//require.Equal(ciRegistry, image.Registry)
 	require.NotEmpty(image.Name)

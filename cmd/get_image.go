@@ -21,8 +21,8 @@ var imageCmd = &cobra.Command{
 	Use:     "image (REPOSITORY)",
 	Aliases: []string{"img"},
 	Short:   "Retrieve the version of a container image, based on the source code used to build it",
-	Long: `Retrieve the version of a container image, based on the source code used to build it
-If source code has not been modified in the current commit, ciux will return an previously built image with the current code if this image is available in the registry
+	Long: `Retrieve the version of a container image, based on the source code used to build it.
+If source code has not been modified in the current commit, ciux will return an previously built image with the current code if this image is available in the registry.
 - Use "sourcePathes" in the .ciux configuration file to specify the pathes to source code used to build the container image
 this pathes are relatives and must be used in the image's Dockerfile COPY/ADD commands
 - Use "registry" in the .ciux configuration file to specify the registry where the image is stored`,
@@ -35,14 +35,14 @@ ciux get image --check <path_to_git_repository> --suffix <image_suffix>`,
 		project, _, err := internal.NewCoreProject(repositoryPath, branch)
 		project.TemporaryRegistry = tmpRegistry
 		internal.FailOnError(err)
-		image, err := project.GetImageName(suffix, check)
+		err = project.GetImageName(suffix, check)
 		internal.FailOnError(err)
 
 		if env {
-			fmt.Printf("export CIUX_IMAGE_URL=%s\n", image.Url())
-			fmt.Printf("export CIUX_BUILD=%t\n", !image.InRegistry)
+			fmt.Printf("export CIUX_IMAGE_URL=%s\n", project.Image.Url())
+			fmt.Printf("export CIUX_BUILD=%t\n", !project.Image.InRegistry)
 		} else {
-			fmt.Printf("Image: %s\n", image)
+			fmt.Printf("Image: %s\n", project.Image)
 		}
 	},
 }
