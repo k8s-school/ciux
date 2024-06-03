@@ -162,7 +162,7 @@ func (p *Project) AddInPlaceDepsSources(basePath string) error {
 	return nil
 }
 
-func (p *Project) CheckImages() ([]name.Reference, error) {
+func (p *Project) CheckDepImages() ([]name.Reference, error) {
 	foundImages := []name.Reference{}
 	for i, dep := range p.Dependencies {
 		if dep.Pull {

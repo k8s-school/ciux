@@ -41,10 +41,14 @@ var igniteCmd = &cobra.Command{
 		internal.FailOnError(err)
 
 		// Check if dependencies container images are available
-		images, err := project.CheckImages()
+		images, err := project.CheckDepImages()
 		internal.FailOnError(err)
 
 		internal.Infof("%s", project.String())
+
+		err = project.GetImageName(suffix, true)
+		internal.FailOnError(err)
+		internal.Infof("Image:\n%s", project.Image)
 
 		goMsg = strings.TrimRight(goMsg, "\n")
 		internal.Infof("Go modules installed:\n%s", goMsg)
@@ -55,10 +59,7 @@ var igniteCmd = &cobra.Command{
 			imgMsg += "  " + image.Name() + "\n"
 		}
 		imgMsg = strings.TrimRight(imgMsg, "\n")
-		internal.Infof("Available Images:\n%s", imgMsg)
-
-		err = project.GetImageName(suffix, true)
-		internal.FailOnError(err)
+		internal.Infof("Available Images for dependencies:\n%s", imgMsg)
 
 		// Write project configuration file
 		msg, err := project.WriteOutConfig()
