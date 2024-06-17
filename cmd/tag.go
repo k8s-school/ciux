@@ -4,6 +4,8 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/k8s-school/ciux/internal"
 	"github.com/spf13/cobra"
 )
@@ -24,7 +26,9 @@ var tagCmd = &cobra.Command{
 		internal.FailOnError(err)
 		newTag, err := rev.UpgradeTag()
 		internal.FailOnError(err)
-		internal.Infof("New tag: %s", newTag)
+		msg := fmt.Sprintf("git tag -m \"Release %[1]s\" %[1]s\n", newTag)
+		msg += "git push --tag"
+		internal.Infof(msg)
 	},
 }
 
