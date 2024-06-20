@@ -124,9 +124,10 @@ func (p *Project) String() string {
 					if err != nil {
 						return msg + fmt.Sprintf("unable to get root of git repository: %v", err)
 					}
+					// in-place means that the dependency was in-place before project ignition
 					msg += fmt.Sprintf("\n  %s %s in-place=%t", rootDep, revDep.GetVersion(), dep.Git.InPlace)
 				} else {
-					msg += fmt.Sprintf("\n  %s remote-only=true", dep.Git.Url)
+					msg += fmt.Sprintf("\n  %s remote-only=true branch=%s", dep.Git.Url, dep.Git.WorkBranch)
 				}
 				if dep.Pull {
 					msg += " pull=true"
@@ -230,25 +231,29 @@ func (project *Project) scanRemoteDeps() error {
 		project.GitMain.WorkBranch = project.ForcedBranch
 	}
 
+	var hash string
 	for _, dep := range project.Dependencies {
 		if dep.Git != nil {
 			err = dep.Git.LsRemote()
 			if err != nil {
 				return fmt.Errorf("unable to ls-remote for dependency repository %s: %v", dep.Git.Url, err)
 			}
-			hasBranch, err := dep.Git.HasBranch(project.GitMain.WorkBranch)
+			var hasBranch bool
+			hasBranch, hash, err = dep.Git.HasBranch(project.GitMain.WorkBranch)
 			if err != nil {
 				return fmt.Errorf("unable to check branch existence for dependency repository %s: %v", dep.Git.Url, err)
 			}
 			if hasBranch {
 				dep.Git.WorkBranch = project.GitMain.WorkBranch
 			} else {
-				main, err := dep.Git.MainBranch()
+				var main string
+				main, hash, err = dep.Git.MainBranch()
 				if err != nil {
 					return fmt.Errorf("unable to get main branch for project repository %s: %v", project.GitMain.Url, err)
 				}
 				dep.Git.WorkBranch = main
 			}
+			dep.Git.RemoteHash = hash
 		}
 	}
 	if log.IsDebugEnabled() {

@@ -24,7 +24,9 @@ type Git struct {
 	RemoteBranches []string
 	Url            string
 	Repository     *git.Repository
-	WorkBranch     string
+	// Hash for the HEAD of the remote work branch
+	RemoteHash string
+	WorkBranch string
 }
 
 // GitSemverTagMap ...
@@ -71,22 +73,23 @@ func FormatTags(tags *map[plumbing.Hash]*plumbing.Reference) map[string]string {
 	return tagMap
 }
 
-func (gitObj *Git) MainBranch() (string, error) {
+func (gitObj *Git) MainBranch() (string, string, error) {
 
 	mainBranch := ""
 	found := false
 	mainNames := []string{"main", "master"}
+	var hash string
 
 	name, err := gitObj.GetName()
 	if err != nil {
-		return "", fmt.Errorf("unable to get name for git repository %s: %v", gitObj.Url, err)
+		return "", "", fmt.Errorf("unable to get name for git repository %s: %v", gitObj.Url, err)
 	}
 
 	for _, branch := range mainNames {
 
-		found, err = gitObj.HasBranch(branch)
+		found, hash, err = gitObj.HasBranch(branch)
 		if err != nil {
-			return "", fmt.Errorf("unable to look for main branch: %v", err)
+			return "", "", fmt.Errorf("unable to look for main branch: %v", err)
 		}
 		if found {
 			mainBranch = branch
@@ -95,9 +98,9 @@ func (gitObj *Git) MainBranch() (string, error) {
 	}
 
 	if !found {
-		return "", fmt.Errorf("unable to find main branch for git repository %s", name)
+		return "", "", fmt.Errorf("unable to find main branch for git repository %s", name)
 	}
-	return mainBranch, nil
+	return mainBranch, hash, nil
 }
 
 func (gitObj *Git) GetName() (string, error) {
@@ -249,8 +252,12 @@ func (gitObj *Git) isRemoteOnly() bool {
 	return gitObj.Repository == nil
 }
 
-func (gitObj *Git) HasBranch(branchname string) (bool, error) {
+// HasBranch returns true if the branch exists in the repository
+// and the hash of the branch HEAD
+// it works for local and remote repositories
+func (gitObj *Git) HasBranch(branchname string) (bool, string, error) {
 	found := false
+	hash := plumbing.ZeroHash
 	if gitObj.isRemoteOnly() {
 		remote := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
 			Name: "origin",
@@ -261,12 +268,14 @@ func (gitObj *Git) HasBranch(branchname string) (bool, error) {
 			PeelingOption: git.AppendPeeled,
 		})
 		if err != nil {
-			return false, fmt.Errorf("unable to list remote references: %+v", err)
+			return false, "", fmt.Errorf("unable to list remote references: %+v", err)
 		}
 		for _, ref := range refs {
 			if ref.Name().IsBranch() {
 				if ref.Name().Short() == branchname {
+					slog.Debug("Branch found", "url", gitObj.Url, "branchname", branchname, "ref", ref.Hash())
 					found = true
+					hash = ref.Hash()
 					break
 				}
 			}
@@ -274,23 +283,24 @@ func (gitObj *Git) HasBranch(branchname string) (bool, error) {
 	} else {
 		bIter, err := gitObj.Repository.Branches()
 		if err != nil {
-			return false, fmt.Errorf("unable to get branches: %v", err)
+			return false, "", fmt.Errorf("unable to get branches: %v", err)
 		}
 
-		err = bIter.ForEach(func(c *plumbing.Reference) error {
-			if c.Name().Short() == branchname {
+		err = bIter.ForEach(func(ref *plumbing.Reference) error {
+			if ref.Name().Short() == branchname {
 				// Exit the loop
 				found = true
+				hash = ref.Hash()
 				return storer.ErrStop
 			}
 			return nil
 		})
 		if err != nil {
-			return false, fmt.Errorf("unable to loop on branches: %v", err)
+			return false, "", fmt.Errorf("unable to loop on branches: %v", err)
 		}
 	}
 	slog.Debug("Branch search", "url", gitObj.Url, "branchname", branchname, "found", found)
-	return found, nil
+	return found, hash.String(), nil
 }
 
 // IsDirty returns true if all the files are in Unmodified or Untracked status.

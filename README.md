@@ -12,8 +12,9 @@
     - [Configuration](#configuration)
   - [3. Usage](#3-usage)
     - [Prerequisites](#prerequisites)
-    - [Building a project with ciux:](#building-a-project-with-ciux)
+    - [Building a simple project with ciux:](#building-a-simple-project-with-ciux)
     - [Integration Tests](#integration-tests)
+    - [Building a multi-repository project with ciux:](#building-a-multi-repository-project-with-ciux)
 
 ## 1. Introduction
 
@@ -78,7 +79,7 @@ $ export CIUXCONFIG="$HOME/.ciux/ciux.sh"
 
 - The `CIUXCONFIG` variable is utilized by Ciux to dynamically retrieve source code and version information during the build and integration testing processes.
 
-### Building a project with ciux:
+### Building a simple project with ciux:
 
 1. Prepare the build process by generating the `CIUXCONFIG` file, using `ciux ignite`:
 
@@ -161,3 +162,29 @@ export FINK_BROKER_VERSION=v3.1.1-rc1-7-ga4bf010
 $ source $CIUXCONFIG
  <project-source-directory>/path/to/integration-test/script.sh
 ```
+
+### Building a multi-repository project with ciux:
+
+When working on a project that is split across multiple Git repositories, it's important to understand how a Git-based continuous integration (CI) system will determine which branches to use when building the project.
+
+If you have created a branch with the same name (e.g. `my-feature-branch`) in all of the repositories, then the `ciux` will use that branch for the build. This is because the `ciux` will look for a branch with the same name in each repository and use that branch for the build.
+
+However, if you have not created a branch with the same name in all of the repositories, then the `ciux` will use the `main` or `master` branch of the other repositories. This is because `ciux` needs to have a common baseline to build against, and if there is no branch with the same name in all repositories, then it will default to using the `main` or `master` branch.
+
+Here's an example of how this might work in practice:
+
+Suppose you have a project that consists of three repositories: `repo1`, `repo2`, and `repo3`. You want to create a new feature branch called `my-feature-branch` in all three repositories.
+
+To do this, you would first create the branch in `repo1`:
+```bash
+git checkout -b my-feature-branch
+```
+Then, you would push the branch to the remote repository:
+```bash
+git push -u origin my-feature-branch
+```
+You would then repeat this process for `repo2` and `repo3`.
+
+Now, when you trigger a build in the CI system, it will look for a branch called `my-feature-branch` in all three repositories and use that branch for the build.
+
+However, if you had only created the `my-feature-branch` branch in `repo1` and `repo2`, but not in `repo3`, then the CI system would use the `main` or `master` branch of `repo3` for the build. This is because the CI system needs to have a common baseline to build against, and if there is no branch with the same name in all repositories, then it will default to using the `main` or `master` branch.

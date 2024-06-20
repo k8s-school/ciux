@@ -295,11 +295,12 @@ func TestMainBranch(t *testing.T) {
 	var mainBranch string
 	gitLocal, err := initGitRepo("ciux-git-mainbranch-test-")
 	require.NoError(err)
-	_, _, err = gitLocal.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
+	headHash, _, err := gitLocal.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
 	require.NoError(err)
-	mainBranch, err = gitLocal.MainBranch()
+	mainBranch, hash, err := gitLocal.MainBranch()
 	require.NoError(err)
 	require.Equal("master", mainBranch)
+	require.Equal(headHash.String(), hash)
 
 	root, err := gitLocal.GetRoot()
 	require.NoError(err)
@@ -332,7 +333,7 @@ func TestMainBranch(t *testing.T) {
 			err := gitObj.CloneOrOpen("", false)
 			require.NoError(err)
 		}
-		mainBranch, err = gitObj.MainBranch()
+		mainBranch, _, err = gitObj.MainBranch()
 		require.NoError(err)
 		require.Equal(tt.expected, mainBranch)
 	}
