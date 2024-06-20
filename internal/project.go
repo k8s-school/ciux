@@ -127,7 +127,7 @@ func (p *Project) String() string {
 					// in-place means that the dependency was in-place before project ignition
 					msg += fmt.Sprintf("\n  %s %s in-place=%t", rootDep, revDep.GetVersion(), dep.Git.InPlace)
 				} else {
-					msg += fmt.Sprintf("\n  %s remote-only=true branch=%s", dep.Git.Url, dep.Git.WorkBranch)
+					msg += fmt.Sprintf("\n  %s remote-only=true branch=%s commit=%s", dep.Git.Url, dep.Git.WorkBranch, dep.Git.RemoteHash)
 				}
 				if dep.Pull {
 					msg += " pull=true"
