@@ -463,7 +463,7 @@ func (git *Git) GoInstall() error {
 	}
 
 	cmd := fmt.Sprintf("go install -C %s", root)
-	outstr, errstr, err := ExecCmd(cmd, false, false)
+	outstr, errstr, err := ExecCmd(cmd, false)
 	slog.Debug("Install from source", "cmd", cmd, "out", outstr, "err", errstr)
 
 	if err != nil {

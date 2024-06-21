@@ -192,7 +192,7 @@ func (p *Project) InstallGoModules() (string, error) {
 	for _, dep := range p.Dependencies {
 		if dep.Package != "" {
 			cmd := fmt.Sprintf("go install %s", dep.Package)
-			outstr, errstr, err := ExecCmd(cmd, false, false)
+			outstr, errstr, err := ExecCmd(cmd, false)
 			slog.Debug("Install package", "cmd", cmd, "out", outstr, "err", errstr)
 			if err != nil {
 				return msg, fmt.Errorf("unable to install go module %s: %v", dep.Package, err)

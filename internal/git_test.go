@@ -413,7 +413,7 @@ func TestGoInstall(t *testing.T) {
 	require.NoError(err)
 
 	cmd := fmt.Sprintf("go mod init -C %s ciux-git-go-install-test/ciux-fake", root)
-	_, _, err = ExecCmd(cmd, false, false)
+	_, _, err = ExecCmd(cmd, false)
 	require.NoError(err)
 
 	// Create main.go in root
@@ -429,7 +429,7 @@ func TestGoInstall(t *testing.T) {
 
 	// Clean up
 	cmd = "rm $(which ciux-fake)"
-	_, _, err = ExecCmd(cmd, false, false)
+	_, _, err = ExecCmd(cmd, false)
 	require.NoError(err)
 
 	// TODO: Add assertions to verify the behavior of the GoInstall function
