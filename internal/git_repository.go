@@ -20,7 +20,7 @@ func HasDiff(current *object.Commit, ancestor *object.Commit, pathes []string) (
 		from, to := fp.Files()
 		if from != nil {
 			slog.Info("File patch", "from", from.Path())
-			codeChange, err := IsPathInSubdirectories(from.Path(), pathes)
+			codeChange, err := IsFileInSourcePathes(from.Path(), pathes)
 			if err != nil {
 				return false, err
 			}
@@ -34,7 +34,7 @@ func HasDiff(current *object.Commit, ancestor *object.Commit, pathes []string) (
 			}
 		} else if to != nil {
 			slog.Info("File patch", "to", to.Path())
-			codeChange, err := IsPathInSubdirectories(to.Path(), pathes)
+			codeChange, err := IsFileInSourcePathes(to.Path(), pathes)
 			if err != nil {
 				return false, err
 			}

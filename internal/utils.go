@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"log/slog"
 	"net/url"
 	"os"
 	"path"
@@ -64,21 +65,43 @@ func IsPathInSubdirectory(filePath, subdirectory string) (bool, error) {
 	return strings.HasPrefix(absFilePath, absSubdirectory+string(filepath.Separator)), nil
 }
 
-// IsPathInSubdirectories checks if the given file path is in one of the given subdirectories
+// IsFileInSourcePathes checks if the given file path is in one of the given subdirectories
 // If subdirectories is empty, it returns true becuase the file path must be in the root directory
-func IsPathInSubdirectories(filePath string, subdirectories []string) (bool, error) {
-	if len(subdirectories) == 0 {
+func IsFileInSourcePathes(filePath string, sourcePathes []string) (bool, error) {
+	if len(sourcePathes) == 0 {
 		return true, nil
 	}
-	for _, subdirectory := range subdirectories {
-		isInSubdirectory, err := IsPathInSubdirectory(filePath, subdirectory)
+	for _, path := range sourcePathes {
+
+		isDir, err := isDirectory(path)
 		if err != nil {
 			return false, err
 		}
 
-		if isInSubdirectory {
-			return true, nil
+		if isDir {
+			isInSubdirectory, err := IsPathInSubdirectory(filePath, path)
+			if err != nil {
+				return false, err
+			}
+
+			if isInSubdirectory {
+				return true, nil
+			}
+		} else {
+			slog.Debug("Check if file path is equal to source path", "filePath", filePath, "sourcePath", path)
+			if path == filePath {
+				return true, nil
+			}
 		}
 	}
 	return false, nil
+}
+
+func isDirectory(path string) (bool, error) {
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return false, err
+	}
+
+	return fileInfo.IsDir(), err
 }

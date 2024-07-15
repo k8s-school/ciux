@@ -110,49 +110,56 @@ func TestIsPathInSubdirectories(t *testing.T) {
 	tests := []struct {
 		name           string
 		filePath       string
-		subdirectories []string
+		sourcePathes   []string
 		expectedResult bool
 		expectedError  error
 	}{
 		{
 			name:           "valid absolute subdirectory",
 			filePath:       "/home/user/documents/file.txt",
-			subdirectories: []string{"/home/user", "/home/toto"},
+			sourcePathes:   []string{"/home/user", "/home/toto"},
 			expectedResult: true,
 			expectedError:  nil,
 		},
 		{
 			name:           "invalid absolute subdirectory",
 			filePath:       "/home/user/documents/file.txt",
-			subdirectories: []string{"/tmp"},
+			sourcePathes:   []string{"/tmp"},
 			expectedResult: false,
 			expectedError:  nil,
 		},
 		{
 			name:           "valid subdirectory",
 			filePath:       "cwd/documents/file.txt",
-			subdirectories: []string{"cwd/documents"},
+			sourcePathes:   []string{"cwd/documents"},
 			expectedResult: true,
 			expectedError:  nil,
 		},
 		{
 			name:           "invalid absolute subdirectory",
 			filePath:       "cwd/documents/file.txt",
-			subdirectories: []string{"tmp"},
+			sourcePathes:   []string{"tmp"},
 			expectedResult: false,
 			expectedError:  nil,
 		},
 		{
 			name:           "empty filePath",
 			filePath:       "",
-			subdirectories: []string{"/home/user"},
+			sourcePathes:   []string{"/home/user"},
 			expectedResult: false,
 			expectedError:  fmt.Errorf("invalid arguments: filePath=%q, subdirectory=%q", "", "/home/user"),
 		},
 		{
 			name:           "empty subdirectories list",
 			filePath:       "/home/user/documents/file.txt",
-			subdirectories: []string{},
+			sourcePathes:   []string{},
+			expectedResult: true,
+			expectedError:  nil,
+		},
+		{
+			name:           "sourcePathes contains a file",
+			filePath:       "cwd/documents/file.txt",
+			sourcePathes:   []string{"tmp", "cwd/documents/file.txt"},
 			expectedResult: true,
 			expectedError:  nil,
 		},
@@ -160,7 +167,7 @@ func TestIsPathInSubdirectories(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actualResult, actualError := IsPathInSubdirectories(tt.filePath, tt.subdirectories)
+			actualResult, actualError := IsFileInSourcePathes(tt.filePath, tt.sourcePathes)
 			assert.Equal(t, tt.expectedResult, actualResult)
 			assert.Equal(t, tt.expectedError, actualError)
 		})
