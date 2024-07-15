@@ -22,7 +22,12 @@ var igniteCmd = &cobra.Command{
 	Short:   "Prepare integration test",
 	Long: `Retrieve current revision of the repository and clone all dependencies in the correct revision.
 	Check if dependencies container images are available.
-	Use repository_path/.ciux.yaml configuration file to retrieve dependencies.`,
+	Use repository_path/.ciux configuration file to retrieve dependencies.
+	Also compute the name for the container image to build:
+	It uses the sourcePathes in repository_path/.ciux to retrieve the latest git commit where some code has changed,
+	then it checks if and image exists in-between this commit and the current one and it returns it,
+	if not it set image name for the current commit.
+	`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		repositoryPath := args[0]

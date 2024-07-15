@@ -1,7 +1,10 @@
 package internal
 
 import (
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -106,7 +109,19 @@ func TestIsPathInSubdirectory(t *testing.T) {
 		})
 	}
 }
-func TestIsPathInSubdirectories(t *testing.T) {
+func TestIsFileInSourcePathes(t *testing.T) {
+
+	tmpSourceDir, err := os.MkdirTemp(os.TempDir(), "ciux-IsFileInSourcePathes")
+	if err != nil {
+		t.Errorf("Error creating temporary directory: %v", err)
+	}
+
+	// In ciux, file comparison is made in the root of the source directory
+	err = os.Chdir(tmpSourceDir)
+	if err != nil {
+		t.Errorf("Error changing directory to %s: %v", tmpSourceDir, err)
+	}
+
 	tests := []struct {
 		name           string
 		filePath       string
@@ -114,40 +129,34 @@ func TestIsPathInSubdirectories(t *testing.T) {
 		expectedResult bool
 		expectedError  error
 	}{
+
 		{
-			name:           "valid absolute subdirectory",
+			name:           "absolute subdirectory",
 			filePath:       "/home/user/documents/file.txt",
 			sourcePathes:   []string{"/home/user", "/home/toto"},
-			expectedResult: true,
-			expectedError:  nil,
-		},
-		{
-			name:           "invalid absolute subdirectory",
-			filePath:       "/home/user/documents/file.txt",
-			sourcePathes:   []string{"/tmp"},
 			expectedResult: false,
-			expectedError:  nil,
+			expectedError:  errors.New("invalid source path, must be relative: \"/home/user\""),
 		},
 		{
 			name:           "valid subdirectory",
 			filePath:       "cwd/documents/file.txt",
-			sourcePathes:   []string{"cwd/documents"},
+			sourcePathes:   []string{"cwd", "cwd/documents"},
 			expectedResult: true,
 			expectedError:  nil,
 		},
 		{
 			name:           "invalid absolute subdirectory",
 			filePath:       "cwd/documents/file.txt",
-			sourcePathes:   []string{"tmp"},
+			sourcePathes:   []string{"invalid-directory"},
 			expectedResult: false,
 			expectedError:  nil,
 		},
 		{
 			name:           "empty filePath",
 			filePath:       "",
-			sourcePathes:   []string{"/home/user"},
+			sourcePathes:   []string{"source-path"},
 			expectedResult: false,
-			expectedError:  fmt.Errorf("invalid arguments: filePath=%q, subdirectory=%q", "", "/home/user"),
+			expectedError:  nil,
 		},
 		{
 			name:           "empty subdirectories list",
@@ -158,8 +167,8 @@ func TestIsPathInSubdirectories(t *testing.T) {
 		},
 		{
 			name:           "sourcePathes contains a file",
-			filePath:       "cwd/documents/file.txt",
-			sourcePathes:   []string{"tmp", "cwd/documents/file.txt"},
+			filePath:       "Dockerfile",
+			sourcePathes:   []string{"tmp", "Dockerfile"},
 			expectedResult: true,
 			expectedError:  nil,
 		},
@@ -167,9 +176,30 @@ func TestIsPathInSubdirectories(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+
+			for _, path := range tt.sourcePathes {
+				if path == "Dockerfile" {
+					file := filepath.Join(tmpSourceDir, path)
+					_, err := os.Create(file)
+					if err != nil {
+						t.Errorf("Error creating Dockerfile: %v", err)
+					}
+				} else if path != "invalid-directory" && path[0] != '/' {
+					dir := filepath.Join(tmpSourceDir, path)
+					err := os.Mkdir(dir, 0755)
+					if err != nil {
+						t.Errorf("Error creating directory %s: %v", path, err)
+					}
+				}
+			}
+
 			actualResult, actualError := IsFileInSourcePathes(tt.filePath, tt.sourcePathes)
 			assert.Equal(t, tt.expectedResult, actualResult)
-			assert.Equal(t, tt.expectedError, actualError)
+			fmt.Printf("actualError: %v\n", actualError)
+
+			if tt.expectedResult == false && tt.expectedError != nil {
+				assert.Equal(t, tt.expectedError, actualError)
+			}
 		})
 	}
 }

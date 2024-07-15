@@ -18,6 +18,7 @@ func HasDiff(current *object.Commit, ancestor *object.Commit, pathes []string) (
 	// Get the file patch
 	for _, fp := range patch.FilePatches() {
 		from, to := fp.Files()
+		slog.Debug("File patch : ", "from", from, "to", to)
 		if from != nil {
 			slog.Info("File patch", "from", from.Path())
 			codeChange, err := IsFileInSourcePathes(from.Path(), pathes)
@@ -48,8 +49,8 @@ func HasDiff(current *object.Commit, ancestor *object.Commit, pathes []string) (
 }
 
 // FindCodeChange returns:
-// - the latest ancestor commit where the source code has changed, or the first commit of the repository and then list of commits where the source code has not changed
-// - an error if any
+//   - the latest ancestor commit for which the source code has changed, then list of following commits for which the source code has not changed
+//   - an error if any
 func FindCodeChange(repository *git.Repository, fromHash plumbing.Hash, pathes []string) ([]plumbing.Hash, error) {
 	current, err := repository.CommitObject(fromHash)
 	if err != nil {
@@ -69,7 +70,8 @@ func FindCodeChange(repository *git.Repository, fromHash plumbing.Hash, pathes [
 		if err != nil {
 			return hashes, fmt.Errorf("unable to retrieve parent commit: %v", err)
 		}
-		slog.Info("Ancestor commit", "hash", parent.Hash)
+		slog.Info("Current commit", "hash", current.Hash)
+		slog.Info("Parent commit", "hash", parent.Hash)
 		changed, err := HasDiff(current, parent, pathes)
 		if err != nil {
 			return hashes, err

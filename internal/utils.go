@@ -73,6 +73,10 @@ func IsFileInSourcePathes(filePath string, sourcePathes []string) (bool, error) 
 	}
 	for _, path := range sourcePathes {
 
+		if path[0] == '/' {
+			return false, fmt.Errorf("invalid source path, must be relative: %q", path)
+		}
+
 		isDir, err := isDirectory(path)
 		if err != nil {
 			return false, err

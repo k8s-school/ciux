@@ -19,7 +19,6 @@ func ExecCmd(command string, dryRun bool) (string, string, error) {
 		cmd.Stdout = stdoutBuf
 		cmd.Stderr = stderrBuf
 		err := cmd.Run()
-		slog.Info("XXXXX", "out", cmd.Stdout, "err", stderrBuf.String())
 		if err != nil {
 			outErr = fmt.Errorf("failed to run command %s in shell: %s", command, err)
 		}
