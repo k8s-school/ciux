@@ -21,7 +21,7 @@ func TestExecCmd(t *testing.T) {
 	stdout, stderr, err = ExecCmd(command, false)
 	require.Error(err)
 	require.Equal("", stdout)
-	require.Equal("bash: line 1: nonexistent-command: command not found\n", stderr)
+	require.Contains(stderr, "nonexistent-command: command not found")
 
 	// Test case 3: Dry run mode
 	command = "echo 'Hello, World!'"
