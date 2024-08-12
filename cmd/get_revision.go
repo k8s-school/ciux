@@ -42,6 +42,6 @@ to quickly create a Cobra application.`,
 func init() {
 	getCmd.AddCommand(revisionCmd)
 
-	revisionCmd.Flags().BoolVarP(&isrelease, "isrelease", "r", false, "Check if the current commit has a release tag is is in master/main branch, return release if true, else empty")
+	revisionCmd.Flags().BoolVarP(&isrelease, "isrelease", "r", false, "Check if the current commit is tagged with a release tag and is in master/main branch, return release tag if true, else empty")
 
 }
