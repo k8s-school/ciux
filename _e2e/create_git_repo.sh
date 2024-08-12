@@ -32,6 +32,5 @@ echo "Hello World" > "$file"
 git add "$file"
 git commit -m "Add $file"
 
-git_tag="v1.0.0"
-ink "Tag $git_tag"
-git tag -a "$git_tag" -m "Release $git_tag"
+ink "Tag $git_tag_v1"
+git tag -a "$git_tag_v1" -m "Release $git_tag_v1"

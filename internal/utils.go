@@ -21,7 +21,7 @@ func FailOnError(err error) {
 
 // Infof should be used to describe the example commands that are about to run.
 func Infof(format string, args ...interface{}) {
-	fmt.Printf("\x1b[34;1m%s\x1b[0m\n", fmt.Sprintf(format, args...))
+	fmt.Printf(format, args...)
 }
 
 // Warnf should be used to display a warning
