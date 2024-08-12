@@ -10,6 +10,17 @@ type GitRevision struct {
 	Branch  string
 }
 
+func (rev *GitRevision) IsRelease() bool {
+	if rev.Counter != 0 {
+		return false
+	} else if rev.Dirty {
+		return false
+	} else if rev.Branch != "master" && rev.Branch != "main" {
+		return false
+	}
+	return true
+}
+
 // GetVersion returns the reference as 'git describe ' will do
 // except that tag is the latest semver annotated tag
 func (rev *GitRevision) GetVersion() string {

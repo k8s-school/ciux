@@ -1,13 +1,15 @@
 package internal
 
 import (
-	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLastDir(t *testing.T) {
@@ -37,14 +39,14 @@ func TestLastDir(t *testing.T) {
 			expected: ".",
 		},
 	}
-	assert := assert.New(t)
+	require := require.New(t)
 
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
 			actual, err := LastDir(tt.path)
-			assert.NoError(err)
-			assert.Equal(tt.expected, actual)
+			require.NoError(err)
+			require.Equal(tt.expected, actual)
 		})
 	}
 }
@@ -65,7 +67,7 @@ func TestIsPathInSubdirectory(t *testing.T) {
 			expectedError:  nil,
 		},
 		{
-			name:           "invalid absolute subdirectory",
+			name:           "invalid subdirectory",
 			filePath:       "/home/user/documents/file.txt",
 			subdirectory:   "/tmp",
 			expectedResult: false,
@@ -73,16 +75,9 @@ func TestIsPathInSubdirectory(t *testing.T) {
 		},
 		{
 			name:           "valid subdirectory",
-			filePath:       "cwd/documents/file.txt",
-			subdirectory:   "cwd/documents",
+			filePath:       "/cwd/documents/file.txt",
+			subdirectory:   "/cwd/documents",
 			expectedResult: true,
-			expectedError:  nil,
-		},
-		{
-			name:           "invalid absolute subdirectory",
-			filePath:       "cwd/documents/file.txt",
-			subdirectory:   "tmp",
-			expectedResult: false,
 			expectedError:  nil,
 		},
 		{
@@ -90,7 +85,7 @@ func TestIsPathInSubdirectory(t *testing.T) {
 			filePath:       "",
 			subdirectory:   "/home/user",
 			expectedResult: false,
-			expectedError:  fmt.Errorf("invalid arguments: filePath=%q, subdirectory=%q", "", "/home/user"),
+			expectedError:  fmt.Errorf("invalid argument: absFilePath=%q", ""),
 		},
 		{
 			name:           "empty subdirectory",
@@ -111,19 +106,17 @@ func TestIsPathInSubdirectory(t *testing.T) {
 }
 func TestIsFileInSourcePathes(t *testing.T) {
 
+	require := require.New(t)
+
 	tmpSourceDir, err := os.MkdirTemp(os.TempDir(), "ciux-IsFileInSourcePathes")
 	if err != nil {
 		t.Errorf("Error creating temporary directory: %v", err)
 	}
-
-	// In ciux, file comparison is made in the root of the source directory
-	err = os.Chdir(tmpSourceDir)
-	if err != nil {
-		t.Errorf("Error changing directory to %s: %v", tmpSourceDir, err)
-	}
+	t.Logf("Created temporary directory: %s", tmpSourceDir)
 
 	tests := []struct {
 		name           string
+		root           string
 		filePath       string
 		sourcePathes   []string
 		expectedResult bool
@@ -131,28 +124,32 @@ func TestIsFileInSourcePathes(t *testing.T) {
 	}{
 
 		{
-			name:           "absolute subdirectory",
+			name:           "not existing subdirectory",
+			root:           "",
 			filePath:       "/home/user/documents/file.txt",
-			sourcePathes:   []string{"/home/user", "/home/toto"},
+			sourcePathes:   []string{"/home/user"},
 			expectedResult: false,
-			expectedError:  errors.New("invalid source path, must be relative: \"/home/user\""),
+			expectedError:  fmt.Errorf("invalid argument filePath must be relative: filePath=\"/home/user/documents/file.txt\""),
 		},
 		{
 			name:           "valid subdirectory",
+			root:           tmpSourceDir,
 			filePath:       "cwd/documents/file.txt",
 			sourcePathes:   []string{"cwd", "cwd/documents"},
 			expectedResult: true,
 			expectedError:  nil,
 		},
 		{
-			name:           "invalid absolute subdirectory",
+			name:           "invalid subdirectory",
+			root:           tmpSourceDir,
 			filePath:       "cwd/documents/file.txt",
-			sourcePathes:   []string{"invalid-directory"},
+			sourcePathes:   []string{"not-exist"},
 			expectedResult: false,
-			expectedError:  nil,
+			expectedError:  &fs.PathError{Op: "stat", Path: filepath.Join(tmpSourceDir, "not-exist"), Err: syscall.ENOENT},
 		},
 		{
 			name:           "empty filePath",
+			root:           tmpSourceDir,
 			filePath:       "",
 			sourcePathes:   []string{"source-path"},
 			expectedResult: false,
@@ -160,6 +157,7 @@ func TestIsFileInSourcePathes(t *testing.T) {
 		},
 		{
 			name:           "empty subdirectories list",
+			root:           tmpSourceDir,
 			filePath:       "/home/user/documents/file.txt",
 			sourcePathes:   []string{},
 			expectedResult: true,
@@ -167,6 +165,7 @@ func TestIsFileInSourcePathes(t *testing.T) {
 		},
 		{
 			name:           "sourcePathes contains a file",
+			root:           tmpSourceDir,
 			filePath:       "Dockerfile",
 			sourcePathes:   []string{"tmp", "Dockerfile"},
 			expectedResult: true,
@@ -175,31 +174,30 @@ func TestIsFileInSourcePathes(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
 
-			for _, path := range tt.sourcePathes {
-				if path == "Dockerfile" {
-					file := filepath.Join(tmpSourceDir, path)
-					_, err := os.Create(file)
-					if err != nil {
-						t.Errorf("Error creating Dockerfile: %v", err)
-					}
-				} else if path != "invalid-directory" && path[0] != '/' {
-					dir := filepath.Join(tmpSourceDir, path)
-					err := os.Mkdir(dir, 0755)
-					if err != nil {
-						t.Errorf("Error creating directory %s: %v", path, err)
-					}
+		for _, path := range tt.sourcePathes {
+			if path == "Dockerfile" {
+				file := filepath.Join(tmpSourceDir, path)
+				_, err := os.Create(file)
+				if err != nil {
+					t.Errorf("Error creating Dockerfile: %v", err)
+				}
+			} else if path != "not-exist" && path[0] != '/' {
+				dir := filepath.Join(tmpSourceDir, path)
+				err := os.Mkdir(dir, 0755)
+				if err != nil {
+					t.Errorf("Error creating directory %s: %v", path, err)
 				}
 			}
+		}
 
-			actualResult, actualError := IsFileInSourcePathes(tt.filePath, tt.sourcePathes)
-			assert.Equal(t, tt.expectedResult, actualResult)
-			fmt.Printf("actualError: %v\n", actualError)
+		t.Run(tt.name, func(t *testing.T) {
 
-			if tt.expectedResult == false && tt.expectedError != nil {
-				assert.Equal(t, tt.expectedError, actualError)
-			}
+			actualResult, actualError := IsFileInSourcePathes(tt.root, tt.filePath, tt.sourcePathes)
+			require.Equal(tt.expectedError, actualError)
+
+			require.Equal(tt.expectedResult, actualResult)
+
 		})
 	}
 }

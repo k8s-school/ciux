@@ -8,6 +8,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var isrelease bool
+
 // revisionCmd represents the revision command
 var revisionCmd = &cobra.Command{
 	Use:     "revision (REPOSITORY) (DEPENDENCY_REPOSITORIES...)",
@@ -26,10 +28,20 @@ to quickly create a Cobra application.`,
 		internal.FailOnError(err)
 		rev, err := gitMeta.GetHeadRevision()
 		internal.FailOnError(err)
-		internal.Infof("Revision: %+v", rev)
+
+		if isrelease {
+			if rev.IsRelease() {
+				internal.Infof(rev.Tag)
+			}
+		} else {
+			internal.Infof("Revision: %+v", rev)
+		}
 	},
 }
 
 func init() {
 	getCmd.AddCommand(revisionCmd)
+
+	revisionCmd.Flags().BoolVarP(&isrelease, "isrelease", "r", false, "Check if the current commit has a release tag is is in master/main branch, return release if true, else empty")
+
 }

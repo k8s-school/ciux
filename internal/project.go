@@ -32,6 +32,16 @@ func NewCoreProject(repository_path string, forcedBranch string) (Project, ProjC
 	if err != nil {
 		return Project{}, ProjConfig{}, fmt.Errorf("unable to read configuration file: %v", err)
 	}
+
+	for _, path := range config.SourcePathes {
+		if filepath.IsAbs(path) {
+			return Project{}, ProjConfig{}, fmt.Errorf("source path %s must be relative", path)
+		}
+		if path != filepath.Clean(path) {
+			return Project{}, ProjConfig{}, fmt.Errorf("source path %s must be clean", path)
+		}
+	}
+
 	p := Project{
 		GitMain:       git,
 		SourcePathes:  config.SourcePathes,
@@ -410,6 +420,7 @@ func (project *Project) GetImageName(suffix string, checkRegistry bool) error {
 	if err != nil {
 		return fmt.Errorf("unable to get HEAD of repository %s: %v", gitMain.Url, err)
 	}
+	gitMain.GetRoot()
 	hashes, err := FindCodeChange(gitMain.Repository, head.Hash(), project.SourcePathes)
 	if err != nil {
 		return fmt.Errorf("unable to find code change in repository %s: %v", gitMain.Url, err)

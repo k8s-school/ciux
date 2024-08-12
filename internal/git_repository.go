@@ -10,7 +10,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
-func HasDiff(current *object.Commit, ancestor *object.Commit, pathes []string) (bool, error) {
+func HasDiff(current *object.Commit, ancestor *object.Commit, root string, pathes []string) (bool, error) {
 	patch, err := ancestor.Patch(current)
 	if err != nil {
 		return false, fmt.Errorf("unable to get patch: %v", err)
@@ -21,7 +21,7 @@ func HasDiff(current *object.Commit, ancestor *object.Commit, pathes []string) (
 		slog.Debug("File patch : ", "from", from, "to", to)
 		if from != nil {
 			slog.Info("File patch", "from", from.Path())
-			codeChange, err := IsFileInSourcePathes(from.Path(), pathes)
+			codeChange, err := IsFileInSourcePathes(root, from.Path(), pathes)
 			if err != nil {
 				return false, err
 			}
@@ -35,7 +35,7 @@ func HasDiff(current *object.Commit, ancestor *object.Commit, pathes []string) (
 			}
 		} else if to != nil {
 			slog.Info("File patch", "to", to.Path())
-			codeChange, err := IsFileInSourcePathes(to.Path(), pathes)
+			codeChange, err := IsFileInSourcePathes(root, to.Path(), pathes)
 			if err != nil {
 				return false, err
 			}
@@ -64,6 +64,12 @@ func FindCodeChange(repository *git.Repository, fromHash plumbing.Hash, pathes [
 		return hashes, nil
 	}
 
+	root, err := GetRepoRoot(repository)
+	if err != nil {
+		slog.Error("Unable to get repository root", "error", err)
+		return nil, err
+	}
+
 	var parent *object.Commit
 	for len(current.ParentHashes) != 0 {
 		parent, err = current.Parent(0)
@@ -72,7 +78,7 @@ func FindCodeChange(repository *git.Repository, fromHash plumbing.Hash, pathes [
 		}
 		slog.Info("Current commit", "hash", current.Hash)
 		slog.Info("Parent commit", "hash", parent.Hash)
-		changed, err := HasDiff(current, parent, pathes)
+		changed, err := HasDiff(current, parent, root, pathes)
 		if err != nil {
 			return hashes, err
 		} else if changed {

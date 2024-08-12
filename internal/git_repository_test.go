@@ -81,18 +81,22 @@ func TestHasDiff(t *testing.T) {
 	hash3, err := gitObj.Repository.ResolveRevision("HEAD")
 	require.NoError(err)
 
+	root, err := gitObj.GetRoot()
+	t.Logf("root: %s", root)
+	require.NoError(err)
+
 	// Test case 1: File not changed in the commit
 	currentCommit, err := repo.CommitObject(*hash2)
 	require.NoError(err)
 	ancestorCommit, err := repo.CommitObject(*hash1)
 	require.NoError(err)
 	pathes := []string{rootfs}
-	hasDiff, err := HasDiff(currentCommit, ancestorCommit, pathes)
+	hasDiff, err := HasDiff(currentCommit, ancestorCommit, root, pathes)
 	require.NoError(err)
 	require.False(hasDiff)
 
 	pathes = []string{""}
-	hasDiff, err = HasDiff(currentCommit, ancestorCommit, pathes)
+	hasDiff, err = HasDiff(currentCommit, ancestorCommit, root, pathes)
 	require.NoError(err)
 	require.True(hasDiff)
 
@@ -102,7 +106,7 @@ func TestHasDiff(t *testing.T) {
 	ancestorCommit, err = repo.CommitObject(*hash1)
 	require.NoError(err)
 	pathes = []string{rootfs}
-	hasDiff, err = HasDiff(currentCommit, ancestorCommit, pathes)
+	hasDiff, err = HasDiff(currentCommit, ancestorCommit, root, pathes)
 	require.NoError(err)
 	require.True(hasDiff)
 }

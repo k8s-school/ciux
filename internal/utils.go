@@ -39,26 +39,11 @@ func LastDir(permalink string) (string, error) {
 }
 
 // IsPathInSubdirectory checks if the given file path is in the given subdirectory
-func IsPathInSubdirectory(filePath, subdirectory string) (bool, error) {
+// all paths must be absolute or function will have non-deterministic behavior
+func IsPathInSubdirectory(absFilePath, absSubdirectory string) (bool, error) {
 
-	// Subdirectory is root directory
-	if subdirectory == "" {
-		return true, nil
-	}
-
-	if filePath == "" {
-		return false, fmt.Errorf("invalid arguments: filePath=%q, subdirectory=%q", filePath, subdirectory)
-	}
-
-	// Get the absolute paths
-	absFilePath, err := filepath.Abs(filePath)
-	if err != nil {
-		return false, err
-	}
-
-	absSubdirectory, err := filepath.Abs(subdirectory)
-	if err != nil {
-		return false, err
+	if absFilePath == "" {
+		return false, fmt.Errorf("invalid argument: absFilePath=%q", absFilePath)
 	}
 
 	// Check if the subdirectory is a prefix of the absolute file path
@@ -67,23 +52,35 @@ func IsPathInSubdirectory(filePath, subdirectory string) (bool, error) {
 
 // IsFileInSourcePathes checks if the given file path is in one of the given subdirectories
 // If subdirectories is empty, it returns true becuase the file path must be in the root directory
-func IsFileInSourcePathes(filePath string, sourcePathes []string) (bool, error) {
+func IsFileInSourcePathes(root string, filePath string, sourcePathes []string) (bool, error) {
 	if len(sourcePathes) == 0 {
 		return true, nil
 	}
-	for _, path := range sourcePathes {
 
-		if path[0] == '/' {
-			return false, fmt.Errorf("invalid source path, must be relative: %q", path)
+	// Get the absolute paths
+	var absFilePath string
+	if filepath.IsAbs(filePath) {
+		return false, fmt.Errorf("invalid argument filePath must be relative: filePath=%q", filePath)
+	} else {
+		absFilePath = filepath.Join(root, filePath)
+	}
+
+	for _, sourcePath := range sourcePathes {
+
+		var absSourcePath string
+		if filepath.IsAbs(sourcePath) {
+			return false, fmt.Errorf("invalid argument sourcePath must be relative: sourcePath=%q", sourcePath)
+		} else {
+			absSourcePath = filepath.Join(root, sourcePath)
 		}
 
-		isDir, err := isDirectory(path)
+		isDir, err := isDirectory(absSourcePath)
 		if err != nil {
 			return false, err
 		}
 
 		if isDir {
-			isInSubdirectory, err := IsPathInSubdirectory(filePath, path)
+			isInSubdirectory, err := IsPathInSubdirectory(absFilePath, absSourcePath)
 			if err != nil {
 				return false, err
 			}
@@ -92,8 +89,8 @@ func IsFileInSourcePathes(filePath string, sourcePathes []string) (bool, error) 
 				return true, nil
 			}
 		} else {
-			slog.Debug("Check if file path is equal to source path", "filePath", filePath, "sourcePath", path)
-			if path == filePath {
+			slog.Debug("Check if file path is equal to source path", "filePath", filePath, "sourcePath", sourcePath)
+			if sourcePath == filePath {
 				return true, nil
 			}
 		}

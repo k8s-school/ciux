@@ -316,6 +316,14 @@ func IsDirty(s git.Status) bool {
 	return false
 }
 
+func GetRepoRoot(gitRepo *git.Repository) (string, error) {
+	worktree, err := gitRepo.Worktree()
+	if err != nil {
+		return "", err
+	}
+	return worktree.Filesystem.Root(), nil
+}
+
 // GetRevision returns the reference as 'git checkout <hash> && git describe ' would do
 func (g *Git) GetRevision(hash plumbing.Hash) (*GitRevision, error) {
 
@@ -431,11 +439,7 @@ func (git *Git) GetRoot() (string, error) {
 	if git.Repository == nil {
 		return "", fmt.Errorf("repository is nil for git %+v", git)
 	}
-	worktree, err := git.Repository.Worktree()
-	if err != nil {
-		return "", err
-	}
-	return worktree.Filesystem.Root(), nil
+	return GetRepoRoot(git.Repository)
 }
 
 func (git *Git) IsGoModule() (bool, error) {
