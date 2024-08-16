@@ -80,7 +80,7 @@ func init() {
 	rootCmd.AddCommand(igniteCmd)
 
 	// Here you will define your flags and configuration settings.
-	igniteCmd.Flags().BoolVarP(&main, "main", "main", false, "Only work with main project, ignore dependencies, --selector is ignored")
+	igniteCmd.Flags().BoolVarP(&main, "main", "m", false, "Only work with main project, ignore dependencies, --selector is ignored")
 	igniteCmd.PersistentFlags().StringVarP(&branch, "branch", "b", "", "current branch for the project, retrieved from git if not specified")
 	igniteCmd.Flags().StringVarP(&suffix, "suffix", "p", "", "Suffix to add to the image name")
 	igniteCmd.Flags().StringVarP(&tmpRegistry, "tmp-registry", "t", "", "Name of temporary registry used to store the image during the ci process")
