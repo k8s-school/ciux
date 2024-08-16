@@ -13,7 +13,7 @@ import (
 )
 
 var branch string
-var itest bool
+var main bool
 
 // igniteCmd represents the revision command
 var igniteCmd = &cobra.Command{
@@ -31,9 +31,12 @@ var igniteCmd = &cobra.Command{
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		repositoryPath := args[0]
-		project, err := internal.NewProject(repositoryPath, branch, labelSelector)
-		project.TemporaryRegistry = tmpRegistry
+		var project internal.Project
+		var err error
+		project, err = internal.NewProject(repositoryPath, branch, main, labelSelector)
+
 		internal.FailOnError(err)
+		project.TemporaryRegistry = tmpRegistry
 		depsBasePath := filepath.Dir(repositoryPath)
 
 		// Retrieve dependencies sources
@@ -77,7 +80,7 @@ func init() {
 	rootCmd.AddCommand(igniteCmd)
 
 	// Here you will define your flags and configuration settings.
-	igniteCmd.Flags().BoolVarP(&itest, "itest", "i", false, "install dependencies for runnning integration tests")
+	igniteCmd.Flags().BoolVarP(&main, "main", "main", false, "Only work with main project, ignore dependencies, --selector is ignored")
 	igniteCmd.PersistentFlags().StringVarP(&branch, "branch", "b", "", "current branch for the project, retrieved from git if not specified")
 	igniteCmd.Flags().StringVarP(&suffix, "suffix", "p", "", "Suffix to add to the image name")
 	igniteCmd.Flags().StringVarP(&tmpRegistry, "tmp-registry", "t", "", "Name of temporary registry used to store the image during the ci process")

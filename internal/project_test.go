@@ -35,7 +35,7 @@ func setupFinkBrokerProject() (Project, error) {
 		return Project{}, err
 	}
 
-	project, err := NewProject(root, "", "")
+	project, err := NewProject(root, "", false, "")
 	project.ImageRegistry = finkBrokerRegistryURL
 	if err != nil {
 		return Project{}, err
@@ -166,7 +166,7 @@ func TestScanRemoteDeps(t *testing.T) {
 	require.NoError(err)
 	defer os.RemoveAll(depRoot)
 
-	project, err := NewProject(root, "", "")
+	project, err := NewProject(root, "", false, "")
 	require.NoError(err)
 
 	// Assert that the dependency has the correct branch information
@@ -198,7 +198,7 @@ func TestWriteOutConfig(t *testing.T) {
 	root, err := localGit.GetRoot()
 	require.NoError(err)
 
-	project, err := NewProject(root, "", "build=true")
+	project, err := NewProject(root, "", false, "build=true")
 	require.NoError(err)
 	tmpDir, err := os.MkdirTemp("", "ciux-writeoutconfig-test-projectdeps-")
 	require.NoError(err)
@@ -258,7 +258,7 @@ func TestNewProject(t *testing.T) {
 	require.NoError(err)
 
 	// Create a new project using the test repository and configuration file
-	project, err := NewProject(repoDir, "", "")
+	project, err := NewProject(repoDir, "", false, "")
 	require.NoError(err)
 
 	// Assert the project properties
@@ -283,7 +283,7 @@ func TestNewProject(t *testing.T) {
 	require.Equal("master", branch)
 
 	// Create a second project with a selector
-	project, err = NewProject(repoDir, "", "build=true")
+	project, err = NewProject(repoDir, "", false, "build=true")
 	require.NoError(err)
 	require.Len(project.Dependencies, 2)
 }
@@ -300,7 +300,7 @@ func TestGetImageName(t *testing.T) {
 	require.NoError(err)
 	defer os.RemoveAll(root)
 
-	project, err := NewProject(root, "", "")
+	project, err := NewProject(root, "", false, "")
 	require.NoError(err)
 
 	// Test when checkRegistry is true and image is not found in the registry

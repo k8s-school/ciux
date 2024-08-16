@@ -21,6 +21,7 @@ type Project struct {
 	// Required for github actions, which fetch a single commit by default
 	ForcedBranch      string
 	TemporaryRegistry string
+	LabelSelector     string
 }
 
 func NewCoreProject(repository_path string, forcedBranch string) (Project, ProjConfig, error) {
@@ -47,6 +48,7 @@ func NewCoreProject(repository_path string, forcedBranch string) (Project, ProjC
 		SourcePathes:  config.SourcePathes,
 		ImageRegistry: config.Registry,
 		ForcedBranch:  forcedBranch,
+		LabelSelector: "Core project",
 	}
 	return p, config, nil
 }
@@ -54,48 +56,51 @@ func NewCoreProject(repository_path string, forcedBranch string) (Project, ProjC
 // NewProject creates a new Project struct
 // It reads the repository_path/.ciux.yaml configuration file
 // and retrieve the work branch for all dependencies
-func NewProject(repository_path string, forcedBranch string, labelSelector string) (Project, error) {
+func NewProject(repository_path string, forcedBranch string, mainProjectOnly bool, labelSelector string) (Project, error) {
 
 	p, config, err := NewCoreProject(repository_path, forcedBranch)
 	if err != nil {
 		return Project{}, err
 	}
 
-	selectors := labels.Everything()
-	if len(labelSelector) > 0 {
-		selectors, err = labels.Parse(labelSelector)
-		if err != nil {
-			return Project{}, fmt.Errorf("unable to parse label selector: %v", err)
+	if !mainProjectOnly {
+		selectors := labels.Everything()
+		if len(labelSelector) > 0 {
+			selectors, err = labels.Parse(labelSelector)
+			if err != nil {
+				return Project{}, fmt.Errorf("unable to parse label selector: %v", err)
+			}
+			p.LabelSelector = fmt.Sprintf("Label selectors: %s", labelSelector)
 		}
-	}
 
-	deps := []*Dependency{}
-	for _, depConfig := range config.Dependencies {
-		var dep *Dependency
-		if depConfig.Package != "" {
-			dep = &Dependency{
-				Package: depConfig.Package,
+		deps := []*Dependency{}
+		for _, depConfig := range config.Dependencies {
+			var dep *Dependency
+			if depConfig.Package != "" {
+				dep = &Dependency{
+					Package: depConfig.Package,
+				}
+			} else if depConfig.Image != "" {
+				dep = &Dependency{
+					Image: depConfig.Image,
+				}
+			} else {
+				dep = &Dependency{
+					Clone: depConfig.Clone,
+					Pull:  depConfig.Pull,
+					Git: &Git{
+						Url: depConfig.Url,
+					},
+				}
 			}
-		} else if depConfig.Image != "" {
-			dep = &Dependency{
-				Image: depConfig.Image,
-			}
-		} else {
-			dep = &Dependency{
-				Clone: depConfig.Clone,
-				Pull:  depConfig.Pull,
-				Git: &Git{
-					Url: depConfig.Url,
-				},
+			if selectors.Matches(depConfig.Labels) {
+				slog.Debug("Dependency selected", "labels", depConfig.Labels, "dep", dep)
+				deps = append(deps, dep)
 			}
 		}
-		if selectors.Matches(depConfig.Labels) {
-			slog.Debug("Dependency selected", "labels", depConfig.Labels, "dep", dep)
-			deps = append(deps, dep)
-		}
-	}
 
-	p.Dependencies = deps
+		p.Dependencies = deps
+	}
 	p.scanRemoteDeps()
 	return p, nil
 }
@@ -309,6 +314,9 @@ func (p *Project) WriteOutConfig() (string, error) {
 		}
 	}
 
+	labels := fmt.Sprintf("# %s\n", p.LabelSelector)
+	f.WriteString(labels)
+
 	gitRepos := append(gitDeps, p.GitMain)
 	for _, gitObj := range gitRepos {
 		varName, err := gitObj.GetEnVarPrefix()
@@ -336,7 +344,6 @@ func (p *Project) WriteOutConfig() (string, error) {
 			if err != nil {
 				return msg, fmt.Errorf("unable to write variable %s_VERSION to file %s: %v", varName, ciuxConfigFile, err)
 			}
-
 		}
 
 		depEnv := fmt.Sprintf("export %s_WORKBRANCH=%s\n", varName, gitObj.WorkBranch)
@@ -357,6 +364,8 @@ func (p *Project) WriteOutConfig() (string, error) {
 			return msg, fmt.Errorf("unable to write variable %s_IMAGE to file %s: %v", varName, ciuxConfigFile, err)
 		}
 	}
+
+	// Image containing the latest code changes
 	imageRegistry := p.ImageRegistry
 	imageEnv := fmt.Sprintf("export CIUX_IMAGE_REGISTRY=%s\n", imageRegistry)
 	_, err = f.WriteString(imageEnv)
@@ -374,7 +383,7 @@ func (p *Project) WriteOutConfig() (string, error) {
 	if err != nil {
 		return msg, fmt.Errorf("unable to get environment variable prefix for project main git repository: %v", err)
 	}
-	imageEnv = fmt.Sprintf("# Similar to %s_VERSION\n", prefix)
+	imageEnv = fmt.Sprintf("# Image which contains latest code source changes %s_VERSION\n", prefix)
 	imageEnv += fmt.Sprintf("export CIUX_IMAGE_TAG=%s\n", imageTag)
 	_, err = f.WriteString(imageEnv)
 	if err != nil {
@@ -386,10 +395,44 @@ func (p *Project) WriteOutConfig() (string, error) {
 	if err != nil {
 		return msg, fmt.Errorf("unable to write variable CIUX_IMAGE_URL to file %s: %v", ciuxConfigFile, err)
 	}
-	notInRegistry := fmt.Sprintf("export CIUX_BUILD=%t\n", !p.Image.InRegistry)
+	notInRegistry := "# True if CIUX_IMAGE_URL need to be built\n"
+	notInRegistry += fmt.Sprintf("export CIUX_BUILD=%t\n", !p.Image.InRegistry)
 	_, err = f.WriteString(notInRegistry)
 	if err != nil {
 		return msg, fmt.Errorf("unable to write variable CIUX_BUILD to file %s: %v", ciuxConfigFile, err)
+	}
+
+	rev, err := p.GitMain.GetHeadRevision()
+	if err != nil {
+		return msg, fmt.Errorf("unable to describe git repository: %v", err)
+	}
+
+	// Promoted image
+	promotedImage := Image{
+		Registry: p.ImageRegistry,
+		Name:     p.Image.Name,
+		Tag:      rev.GetVersion(),
+	}
+	promotedImageUrl := "# Promoted image is the image which will be push if CI run successfully\n"
+	promotedImageUrl += fmt.Sprintf("export CIUX_PROMOTED_IMAGE_URL=%s", promotedImage.Url())
+	_, err = f.WriteString(promotedImageUrl)
+	if err != nil {
+		return msg, fmt.Errorf("unable to write variable CIUX_IMAGE_URL to file %s: %v", ciuxConfigFile, err)
+	}
+
+	// Temporary image
+	if p.TemporaryRegistry != "" {
+		temporaryImage := Image{
+			Registry: p.TemporaryRegistry,
+			Name:     p.Image.Name,
+			Tag:      rev.GetVersion(),
+		}
+		temporaryImageUrl := "# Temporary image is the image which will be push if CI run successfully\n"
+		temporaryImageUrl += fmt.Sprintf("export CIUX_TEMPORARY_IMAGE_URL=%s", temporaryImage.Url())
+		_, err = f.WriteString(temporaryImageUrl)
+		if err != nil {
+			return msg, fmt.Errorf("unable to write variable CIUX_TEMPORARY_IMAGE_URL to file %s: %v", ciuxConfigFile, err)
+		}
 	}
 
 	msg = fmt.Sprintf("Configuration file:\n  %s", ciuxConfigFile)

@@ -17,7 +17,7 @@ var envCmd = &cobra.Command{
 	Long:  `Print ciux environment variables for current local dependencies.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		repositoryPath := args[0]
-		project, err := internal.NewProject(repositoryPath, branch, "")
+		project, err := internal.NewProject(repositoryPath, branch, false, "")
 		internal.FailOnError(err)
 		depsBasePath := filepath.Dir(repositoryPath)
 		err = project.AddInPlaceDepsSources(depsBasePath)
