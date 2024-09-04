@@ -4,9 +4,11 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/k8s-school/ciux/cmd/util"
 	"github.com/k8s-school/ciux/internal" // Add this line to import the internal package
@@ -38,10 +40,17 @@ var clusterNameCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmtBranch := reg.ReplaceAllString(rev.Branch, "-")
-		fmtVer := reg.ReplaceAllString(rev.GetVersion(), "-")
 
-		internal.Infof("%s-%s-%s", user, fmtBranch, fmtVer)
+		dirty := ""
+		if rev.Dirty {
+			dirty = "-dirty"
+		}
+		clusterName := fmt.Sprintf("%s-%s-%.6s%s", user, rev.Branch, rev.Hash, dirty)
+		clusterName = reg.ReplaceAllString(clusterName, "-")
+		clusterName = strings.ToLower(clusterName)
+
+		// "getconf HOST_NAME_MAX" returns usually 64
+		internal.Infof("%.50s", clusterName)
 
 	},
 }
