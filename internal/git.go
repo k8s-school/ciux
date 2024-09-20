@@ -173,7 +173,9 @@ func (gitObj *Git) CloneOrOpen(destBasePath string, singleBranch bool) error {
 			return err
 		}
 	} else {
+
 		destPath = filepath.Join(destBasePath, name)
+		slog.Debug("XXXXXXXXXXXXXXXXXXxx Creating directory", "path", destBasePath)
 		err := os.MkdirAll(destPath, 0755)
 		if err != nil {
 			return err

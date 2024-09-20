@@ -21,7 +21,7 @@ var depsCmd = &cobra.Command{
 ciux get image --check <path_to_git_repository> --suffix <image_suffix>`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		repositoryPath := args[0]
+		repositoryPath := internal.AbsPath(args[0])
 		project, err := internal.NewProject(repositoryPath, branch, false, labelSelector)
 		internal.FailOnError(err)
 

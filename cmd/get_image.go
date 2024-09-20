@@ -31,7 +31,7 @@ this pathes are relatives and must be used in the image's Dockerfile COPY/ADD co
 ciux get image --check <path_to_git_repository> --suffix <image_suffix>`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		repositoryPath := args[0]
+		repositoryPath := internal.AbsPath(args[0])
 		project, _, err := internal.NewCoreProject(repositoryPath, branch)
 		project.TemporaryRegistry = tmpRegistry
 		internal.FailOnError(err)

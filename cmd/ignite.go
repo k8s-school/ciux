@@ -30,7 +30,8 @@ var igniteCmd = &cobra.Command{
 	`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		repositoryPath := args[0]
+		repositoryPath := internal.AbsPath(args[0])
+
 		var project internal.Project
 		var err error
 		project, err = internal.NewProject(repositoryPath, branch, main, labelSelector)

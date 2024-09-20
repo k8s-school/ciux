@@ -24,7 +24,7 @@ var clusterNameCmd = &cobra.Command{
   ciux get cn`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		repositoryPath := args[0]
+		repositoryPath := internal.AbsPath(args[0])
 		gitMeta, err := internal.NewGit(repositoryPath)
 		internal.FailOnError(err)
 		rev, err := gitMeta.GetHeadRevision()

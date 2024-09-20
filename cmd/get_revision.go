@@ -23,7 +23,7 @@ This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		repositoryPath := args[0]
+		repositoryPath := internal.AbsPath(args[0])
 		gitMeta, err := internal.NewGit(repositoryPath)
 		internal.FailOnError(err)
 		rev, err := gitMeta.GetHeadRevision()

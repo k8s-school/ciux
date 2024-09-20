@@ -18,7 +18,7 @@ var tagCmd = &cobra.Command{
 	Long:    `Create a versioned tag for a git repository`,
 	Args:    cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		repositoryPath := args[0]
+		repositoryPath := internal.AbsPath(args[0])
 		git, err := internal.NewGit(repositoryPath)
 		internal.FailOnError(err)
 

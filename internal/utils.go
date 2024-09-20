@@ -38,6 +38,20 @@ func LastDir(permalink string) (string, error) {
 	return path.Base(url.Path), nil
 }
 
+func AbsPath(path string) string {
+	var abspath string
+	if filepath.IsAbs(path) {
+		abspath = path
+	} else {
+		cwd, err := os.Getwd()
+		if err != nil {
+			panic(err)
+		}
+		abspath = filepath.Join(cwd, path)
+	}
+	return abspath
+}
+
 // IsPathInSubdirectory checks if the given file path is in the given subdirectory
 // all paths must be absolute or function will have non-deterministic behavior
 func IsPathInSubdirectory(absFilePath, absSubdirectory string) (bool, error) {
