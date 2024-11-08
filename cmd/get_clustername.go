@@ -50,7 +50,8 @@ var clusterNameCmd = &cobra.Command{
 		clusterName = strings.ToLower(clusterName)
 
 		// "getconf HOST_NAME_MAX" returns usually 64
-		internal.Infof("%.50s", clusterName)
+		// -control-plane is 14 characters
+		internal.Infof("%.49s", clusterName)
 
 	},
 }
