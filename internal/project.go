@@ -186,6 +186,7 @@ func (p *Project) CheckDepImages() ([]name.Reference, error) {
 			if err != nil {
 				return foundImages, fmt.Errorf("unable to get image name for git repository %s: %v", p.Dependencies[i].Git.Url, err)
 			}
+			slog.Debug("Check image existence", "image", imageUrl)
 			_, ref, err := DescImage(imageUrl)
 			if err != nil {
 				return foundImages, fmt.Errorf("unable to check image existence: %v, %v", err, ref)
