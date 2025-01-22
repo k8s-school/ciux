@@ -1,6 +1,3 @@
-/*
-Copyright © 2023 NAME HERE <EMAIL ADDRESS>
-*/
 package cmd
 
 import (
@@ -30,11 +27,12 @@ var igniteCmd = &cobra.Command{
 	`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
+
 		repositoryPath := internal.AbsPath(args[0])
 
 		var project internal.Project
-		var err error
-		project, err = internal.NewProject(repositoryPath, branch, main, labelSelector)
+
+		project, err := internal.NewProject(repositoryPath, branch, main, labelSelector)
 
 		internal.FailOnError(err)
 		project.TemporaryRegistry = tmpRegistry

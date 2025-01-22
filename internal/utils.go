@@ -39,15 +39,10 @@ func LastDir(permalink string) (string, error) {
 }
 
 func AbsPath(path string) string {
-	var abspath string
-	if filepath.IsAbs(path) {
-		abspath = path
-	} else {
-		cwd, err := os.Getwd()
-		if err != nil {
-			panic(err)
-		}
-		abspath = filepath.Join(cwd, path)
+	abspath, err := filepath.Abs(path)
+	if err != nil {
+		slog.Error("unable to get absolute path", "path", path, "error", err)
+		os.Exit(1)
 	}
 	return abspath
 }

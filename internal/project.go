@@ -154,6 +154,7 @@ func (p *Project) String() string {
 }
 
 func (p *Project) RetrieveDepsSources(basePath string) error {
+	slog.Debug("Retrieve dependencies sources locally", "basePath", basePath)
 	for i, dep := range p.Dependencies {
 		if dep.Clone {
 			singleBranch := true
