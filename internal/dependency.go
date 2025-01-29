@@ -10,6 +10,7 @@ type Dependency struct {
 	Package string
 }
 
+// String returns the string representation of the dependency
 func (dep *Dependency) String() string {
 	if dep.Package != "" {
 		return dep.Package
@@ -20,6 +21,7 @@ func (dep *Dependency) String() string {
 	}
 }
 
+// GetImageName returns the image name of the dependency
 func (dep *Dependency) GetImageName(imageRegistry string) (string, error) {
 	if dep.Image != "" {
 		return dep.Image, nil
