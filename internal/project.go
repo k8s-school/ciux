@@ -285,20 +285,18 @@ func (project *Project) scanRemoteDeps() error {
 
 // WriteOutConfig writes out the shell configuration file
 // used be the CI/CD pipeline
-func (p *Project) WriteOutConfig() (string, error) {
+func (p *Project) WriteOutConfig(repositoryPath string, labelSelector string) (string, error) {
 	msg := ""
+
 	var ciuxConfigFile = os.Getenv("CIUXCONFIG")
 	if len(ciuxConfigFile) == 0 {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return msg, fmt.Errorf("unable to get user home directory: %v", err)
-		}
-		ciuxCfgDir := filepath.Join(home, ".ciux")
-		os.MkdirAll(ciuxCfgDir, 0755)
+		ciuxCfgDir := filepath.Join(repositoryPath, ".ciux.d")
+		err := os.MkdirAll(ciuxCfgDir, 0755)
 		if err != nil {
 			return msg, fmt.Errorf("unable to create directory %s: %v", ciuxCfgDir, err)
 		}
-		ciuxConfigFile = filepath.Join(ciuxCfgDir, "ciux.sh")
+		ciuxFileName := "ciux" + LabelSelectorToFileName(labelSelector) + ".sh"
+		ciuxConfigFile = filepath.Join(ciuxCfgDir, ciuxFileName)
 	}
 	f, err := os.Create(ciuxConfigFile)
 	if err != nil {

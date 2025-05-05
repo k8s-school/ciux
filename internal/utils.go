@@ -22,11 +22,20 @@ func FailOnError(err error) {
 // Infof should be used to describe the example commands that are about to run.
 func Infof(format string, args ...interface{}) {
 	fmt.Printf(format+"\n", args...)
+	// Reduce string to 64 characters
 }
 
 // Warnf should be used to display a warning
 func Warnf(format string, args ...interface{}) {
 	fmt.Printf("\x1b[36;1m%s\x1b[0m\n", fmt.Sprintf(format, args...))
+}
+
+// LabelSelectorToFileName converts a label selector to a string which can be used in a file name
+// It replaces "=" with "_" and "," with "-"
+func LabelSelectorToFileName(labelSelector string) string {
+	labelSelector = strings.ReplaceAll(labelSelector, "=", "_")
+	labelSelector = strings.ReplaceAll(labelSelector, ",", "-")
+	return labelSelector
 }
 
 // LastDir returns the last element of URL path
