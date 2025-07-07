@@ -8,6 +8,8 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 func FailOnError(err error) {
@@ -32,14 +34,15 @@ func Warnf(format string, args ...interface{}) {
 
 // LabelSelectorToFileName converts a label selector to a string which can be used in a file name
 // It replaces "=" with "_" and "," with "-"
-func LabelSelectorToFileName(labelSelector string) string {
-	if labelSelector == "" {
+func LabelSelectorToFileName(labelSelector labels.Selector) string {
+	str := labelSelector.String()
+	if str == "" {
 		return ""
 	}
-	labelSelector = strings.ReplaceAll(labelSelector, "=", "_")
-	labelSelector = strings.ReplaceAll(labelSelector, ",", "-")
-	labelSelector = "_" + labelSelector
-	return labelSelector
+	str = strings.ReplaceAll(str, "=", "_")
+	str = strings.ReplaceAll(str, ",", "-")
+	str = "_" + str
+	return str
 }
 
 // LastDir returns the last element of URL path

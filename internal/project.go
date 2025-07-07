@@ -10,6 +10,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/k8s-school/ciux/log"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 )
 
 type Project struct {
@@ -21,7 +22,7 @@ type Project struct {
 	// Required for github actions, which fetch a single commit by default
 	ForcedBranch      string
 	TemporaryRegistry string
-	LabelSelector     string
+	Selector          labels.Selector
 }
 
 func NewCoreProject(repository_path string, forcedBranch string) (Project, ProjConfig, error) {
@@ -43,12 +44,17 @@ func NewCoreProject(repository_path string, forcedBranch string) (Project, ProjC
 		}
 	}
 
+	req, err := labels.NewRequirement("project", selection.Equals, []string{"core"})
+	if err != nil {
+		return Project{}, ProjConfig{}, fmt.Errorf("unable to create label requirement: %v", err)
+	}
+
 	p := Project{
 		GitMain:       git,
 		SourcePathes:  config.SourcePathes,
 		ImageRegistry: config.Registry,
 		ForcedBranch:  forcedBranch,
-		LabelSelector: "Core project",
+		Selector:      labels.NewSelector().Add(*req),
 	}
 	return p, config, nil
 }
@@ -71,7 +77,7 @@ func NewProject(repository_path string, forcedBranch string, mainProjectOnly boo
 				return Project{}, fmt.Errorf("unable to parse label selector: %v", err)
 			}
 			slog.Debug("Label selector", "selector", selectors)
-			p.LabelSelector = fmt.Sprintf("Label selectors: %s", selectors)
+			p.Selector = selectors
 		}
 
 		deps := []*Dependency{}
@@ -296,7 +302,7 @@ func (p *Project) WriteOutConfig(repositoryPath string) (string, error) {
 		if err != nil {
 			return msg, fmt.Errorf("unable to create directory %s: %v", ciuxCfgDir, err)
 		}
-		ciuxFileName := "ciux" + LabelSelectorToFileName(p.LabelSelector) + ".sh"
+		ciuxFileName := "ciux" + LabelSelectorToFileName(p.Selector) + ".sh"
 		ciuxConfigFile = filepath.Join(ciuxCfgDir, ciuxFileName)
 	}
 	f, err := os.Create(ciuxConfigFile)
@@ -315,7 +321,7 @@ func (p *Project) WriteOutConfig(repositoryPath string) (string, error) {
 		}
 	}
 
-	labels := fmt.Sprintf("# %s\n", p.LabelSelector)
+	labels := fmt.Sprintf("# Label selector: %s\n", p.Selector)
 	f.WriteString(labels)
 
 	gitRepos := append(gitDeps, p.GitMain)
