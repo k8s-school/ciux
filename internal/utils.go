@@ -33,8 +33,12 @@ func Warnf(format string, args ...interface{}) {
 // LabelSelectorToFileName converts a label selector to a string which can be used in a file name
 // It replaces "=" with "_" and "," with "-"
 func LabelSelectorToFileName(labelSelector string) string {
+	if labelSelector == "" {
+		return ""
+	}
 	labelSelector = strings.ReplaceAll(labelSelector, "=", "_")
 	labelSelector = strings.ReplaceAll(labelSelector, ",", "-")
+	labelSelector = "_" + labelSelector
 	return labelSelector
 }
 

@@ -70,7 +70,8 @@ func NewProject(repository_path string, forcedBranch string, mainProjectOnly boo
 			if err != nil {
 				return Project{}, fmt.Errorf("unable to parse label selector: %v", err)
 			}
-			p.LabelSelector = fmt.Sprintf("Label selectors: %s", labelSelector)
+			slog.Debug("Label selector", "selector", selectors)
+			p.LabelSelector = fmt.Sprintf("Label selectors: %s", selectors)
 		}
 
 		deps := []*Dependency{}
@@ -94,7 +95,7 @@ func NewProject(repository_path string, forcedBranch string, mainProjectOnly boo
 				}
 			}
 			if selectors.Matches(depConfig.Labels) {
-				slog.Debug("Dependency selected", "labels", depConfig.Labels, "dep", dep)
+				slog.Debug("Dependencies selected", "labels", depConfig.Labels, "dep", dep)
 				deps = append(deps, dep)
 			}
 		}
