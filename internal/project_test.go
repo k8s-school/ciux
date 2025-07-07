@@ -205,7 +205,7 @@ func TestWriteOutConfig(t *testing.T) {
 	project.RetrieveDepsSources(tmpDir)
 	ciuxConfig := filepath.Join(root, "ciux.sh")
 	os.Setenv("CIUXCONFIG", ciuxConfig)
-	_, err = project.WriteOutConfig(root, "build=true")
+	_, err = project.WriteOutConfig(root)
 	require.NoError(err)
 
 	// Assert that the .ciux.sh file was created
