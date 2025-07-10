@@ -1,6 +1,7 @@
+* TODO Add symolic link $PROJECT_DIR/.ciux/ciux.sh
 * TODO add integration tests!!!
 * TODO Improve tag code wrt https://medium.com/@clm160/tag-example-with-go-git-library-4377a84bbf17
-* TODO improve: ciux get image --check /home/fjammes/src/github.com/astrolabsoftware/stackable-hadoop --env -v 5 
+* TODO improve: ciux get image --check /home/fjammes/src/github.com/astrolabsoftware/stackable-hadoop --env -v 5
   take in account files in dirty state?
 * TODO FIX bug in "ciux ignite ." related to deps base path
 * TODO add parameter to check FROM image existence in .ciux (for k8s-spark-py), at build time, not itest

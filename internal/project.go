@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -379,8 +380,7 @@ func (p *Project) WriteOutConfig(repositoryPath string) (string, error) {
 	if err != nil {
 		return msg, fmt.Errorf("unable to write variable CIUX_IMAGE_REGISTRY to file %s: %v", ciuxConfigFile, err)
 	}
-	imageName := p.Image.Name
-	imageEnv = fmt.Sprintf("export CIUX_IMAGE_NAME=%s\n", imageName)
+	imageEnv = fmt.Sprintf("export CIUX_IMAGE_NAME=%s\n", p.Image.Name)
 	_, err = f.WriteString(imageEnv)
 	if err != nil {
 		return msg, fmt.Errorf("unable to write variable CIUX_IMAGE_NAME to file %s: %v", ciuxConfigFile, err)
@@ -486,6 +486,7 @@ func (project *Project) GetImageName(suffix string, checkRegistry bool) error {
 	if err != nil {
 		return fmt.Errorf("unable to get project name: %v", err)
 	}
+	imageName = strings.ToLower(imageName)
 	if len(suffix) > 0 {
 		imageName = fmt.Sprintf("%s-%s", imageName, suffix)
 	}

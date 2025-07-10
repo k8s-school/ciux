@@ -22,8 +22,7 @@ func (i Image) String() string {
 }
 
 func (i Image) Url() string {
-	name := strings.ToLower(i.Name)
-	return fmt.Sprintf("%s/%s:%s", i.Registry, name, i.Tag)
+	return fmt.Sprintf("%s/%s:%s", i.Registry, i.Name, i.Tag)
 }
 
 func (i Image) Desc() (v1.Image, name.Reference, error) {
