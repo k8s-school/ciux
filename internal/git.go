@@ -320,11 +320,12 @@ func IsDirty(s git.Status) bool {
 
 func GetRepoRoot(gitRepo *git.Repository) (string, error) {
 	worktree, err := gitRepo.Worktree()
-	slog.Debug("Get worktree", "worktree", worktree.Filesystem.Root())
 	if err != nil {
 		return "", err
 	}
-	return worktree.Filesystem.Root(), nil
+	root := worktree.Filesystem.Root()
+	slog.Debug("Get repository root", "path", root)
+	return root, nil
 }
 
 // GetRevision returns the reference as 'git checkout <hash> && git describe ' would do

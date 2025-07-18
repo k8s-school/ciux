@@ -4,6 +4,13 @@ set -euxo pipefail
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
+
+git_dir="$1"
+if [ -z "$git_dir" ]; then
+    echo "Usage: $0 <git_directory>"
+    exit 1
+fi
+
 # Create a git repo
 mkdir "$git_dir"
 cd "$git_dir"

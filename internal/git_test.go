@@ -9,7 +9,6 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/k8s-school/ciux/internal/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -489,5 +488,5 @@ func TestGetRoot(t *testing.T) {
 	require.True(info.IsDir())
 	// Check root starts with the expected prefix
 
-	require.True(utils.HasPrefixInBase(root, repoPrefix))
+	require.True(HasPrefixInBase(root, repoPrefix))
 }

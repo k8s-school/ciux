@@ -311,13 +311,9 @@ func (p *Project) GetCiuxConfigFilepath() (string, error) {
 }
 
 func (p *Project) GetRepositoryPath() (string, error) {
-	root, err := p.GitMain.GetRoot()
+	repositoryPath, err := p.GitMain.GetRoot()
 	if err != nil {
 		return "", fmt.Errorf("unable to get root of project repository: %v", err)
-	}
-	repositoryPath := filepath.Dir(root)
-	if !filepath.IsAbs(repositoryPath) {
-		repositoryPath = filepath.Join(os.Getenv("PWD"), repositoryPath)
 	}
 	return repositoryPath, nil
 }

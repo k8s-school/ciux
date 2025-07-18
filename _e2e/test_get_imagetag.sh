@@ -6,7 +6,9 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 . $DIR/include.sh
 
-$DIR/create_git_repo.sh
+project="get_imagetag"
+git_dir="$tmp_dir/$project"
+$DIR/create_git_repo.sh "$git_dir"
 
 cd "$git_dir"
 

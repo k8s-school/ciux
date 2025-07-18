@@ -43,4 +43,10 @@ jobs:
           ciux ignite --selector ci --branch="$GHA_BRANCH_NAME" $PWD
       - name: Test 'ciux get imagetag'
         run: |
-          ./_e2e/get_imagetag.sh
+          ./_e2e/test_get_imagetag.sh
+      - name: Test 'ciux get revision'
+        run: |
+          ./_e2e/test_get_revision.sh
+      - name: Test 'ciux get configpath'
+        run: |
+          ./_e2e/test_get_configpath.sh

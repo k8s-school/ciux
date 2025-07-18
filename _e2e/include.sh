@@ -1,6 +1,4 @@
 export tmp_dir=$(mktemp -d)
-export project="e2e"
-export git_dir="$tmp_dir/$project"
 export git_tag_v1="v1.0.0"
 
 function check_equal() {

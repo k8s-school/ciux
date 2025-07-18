@@ -6,8 +6,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/k8s-school/ciux/internal/utils"
-	"github.com/k8s-school/ciux/internal" // Add this line to import the internal package
+	"github.com/k8s-school/ciux/cmd/util"
+	"github.com/k8s-school/ciux/internal"
 	"github.com/spf13/cobra"
 )
 
@@ -29,7 +29,7 @@ var configPathCmd = &cobra.Command{
 		configPath, err := project.GetCiuxConfigFilepath()
 		internal.FailOnError(err)
 		// Check if the config file exists
-		if !utils.FileExists(configPath) {
+		if !internal.FileExists(configPath) {
 			internal.FailOnError(fmt.Errorf("ciux configuration file not found at %s", configPath))
 		}
 		fmt.Println(configPath)
