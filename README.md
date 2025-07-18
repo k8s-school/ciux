@@ -141,6 +141,7 @@ There is a `CIUXCONFIG` generate by `ciux ignite` for each different label selec
         - With the environment variables set by sourcing `CIUXCONFIG`, execute the build script of the project. This script is responsible for compiling, assembling, and generating the project artifacts.
 
           ```bash
+          # Example: https://github.com/astrolabsoftware/fink-broker/blob/master/build.sh
           $  <project-source-directory>/path/to/build/script.sh
           ```
 
@@ -171,7 +172,8 @@ export FINK_BROKER_VERSION=v3.1.1-rc1-7-ga4bf010
 
 ```bash
 $ source $CIUXCONFIG
- <project-source-directory>/path/to/integration-test/script.sh
+# See example: https://github.com/astrolabsoftware/fink-broker/blob/master/e2e/run.sh
+$ <project-source-directory>/path/to/integration-test/script.sh
 ```
 
 ### Building a multi-repository project with ciux:
