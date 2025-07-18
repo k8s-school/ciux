@@ -291,24 +291,48 @@ func (project *Project) scanRemoteDeps() error {
 	return nil
 }
 
-// WriteOutConfig writes out the shell configuration file
-// used be the CI/CD pipeline
-func (p *Project) WriteOutConfig(repositoryPath string) (string, error) {
-	msg := ""
-
+func (p *Project) GetCiuxConfigFilepath() (string, error) {
 	var ciuxConfigFile = os.Getenv("CIUXCONFIG")
 	if len(ciuxConfigFile) == 0 {
-		ciuxCfgDir := filepath.Join(repositoryPath, ".ciux.d")
-		err := os.MkdirAll(ciuxCfgDir, 0755)
+		repositoryPath, err := p.GetRepositoryPath()
 		if err != nil {
-			return msg, fmt.Errorf("unable to create directory %s: %v", ciuxCfgDir, err)
+			return "", fmt.Errorf("unable to get repository path: %v", err)
+		}
+		ciuxCfgDir := filepath.Join(repositoryPath, ".ciux.d")
+		err = os.MkdirAll(ciuxCfgDir, 0755)
+		if err != nil {
+			return "", fmt.Errorf("unable to create directory %s: %v", ciuxCfgDir, err)
 		}
 		ciuxFileName := "ciux" + LabelSelectorToFileName(p.Selector) + ".sh"
 		ciuxConfigFile = filepath.Join(ciuxCfgDir, ciuxFileName)
 	}
-	f, err := os.Create(ciuxConfigFile)
+	return ciuxConfigFile, nil
+}
+
+func (p *Project) GetRepositoryPath() (string, error) {
+	root, err := p.GitMain.GetRoot()
 	if err != nil {
-		return msg, fmt.Errorf("unable to create configuration file %s: %v", ciuxConfigFile, err)
+		return "", fmt.Errorf("unable to get root of project repository: %v", err)
+	}
+	repositoryPath := filepath.Dir(root)
+	if !filepath.IsAbs(repositoryPath) {
+		repositoryPath = filepath.Join(os.Getenv("PWD"), repositoryPath)
+	}
+	return repositoryPath, nil
+}
+
+// WriteOutConfig writes out the shell configuration file
+// used be the CI/CD pipeline
+func (p *Project) WriteOutConfig() (string, error) {
+
+	ciuxConfigFilepath, err := p.GetCiuxConfigFilepath()
+	if err != nil {
+		return "", fmt.Errorf("unable to get ciux config file path: %v", err)
+	}
+
+	f, err := os.Create(ciuxConfigFilepath)
+	if err != nil {
+		return "", fmt.Errorf("unable to create configuration file %s: %v", ciuxConfigFilepath, err)
 	}
 	defer f.Close()
 
@@ -329,47 +353,47 @@ func (p *Project) WriteOutConfig(repositoryPath string) (string, error) {
 	for _, gitObj := range gitRepos {
 		varName, err := gitObj.GetEnVarPrefix()
 		if err != nil {
-			return msg, fmt.Errorf("unable to get environment variable name for git repository %v: %v", gitObj, err)
+			return "", fmt.Errorf("unable to get environment variable name for git repository %v: %v", gitObj, err)
 		}
 		if !gitObj.isRemoteOnly() {
 			root, err := gitObj.GetRoot()
 			if err != nil {
-				return msg, fmt.Errorf("unable to get root of git repository: %v", err)
+				return "", fmt.Errorf("unable to get root of git repository: %v", err)
 			}
 
 			depEnv := fmt.Sprintf("export %s_DIR=%s\n", varName, root)
 			_, err = f.WriteString(depEnv)
 			if err != nil {
-				return msg, fmt.Errorf("unable to write variable %s to file %s: %v", varName, ciuxConfigFile, err)
+				return "", fmt.Errorf("unable to write variable %s to file %s: %v", varName, ciuxConfigFilepath, err)
 			}
 
 			rev, err := gitObj.GetHeadRevision()
 			if err != nil {
-				return msg, fmt.Errorf("unable to describe git repository: %v", err)
+				return "", fmt.Errorf("unable to describe git repository: %v", err)
 			}
 			depVersion := fmt.Sprintf("export %s_VERSION=%s\n", varName, rev.GetVersion())
 			_, err = f.WriteString(depVersion)
 			if err != nil {
-				return msg, fmt.Errorf("unable to write variable %s_VERSION to file %s: %v", varName, ciuxConfigFile, err)
+				return "", fmt.Errorf("unable to write variable %s_VERSION to file %s: %v", varName, ciuxConfigFilepath, err)
 			}
 		}
 
 		depEnv := fmt.Sprintf("export %s_WORKBRANCH=%s\n", varName, gitObj.WorkBranch)
 		_, err = f.WriteString(depEnv)
 		if err != nil {
-			return msg, fmt.Errorf("unable to write variable %s to file %s: %v", varName, ciuxConfigFile, err)
+			return "", fmt.Errorf("unable to write variable %s to file %s: %v", varName, ciuxConfigFilepath, err)
 		}
 	}
 
 	for _, image := range imageDeps {
 		varName, err := GetImageEnVarPrefix(image)
 		if err != nil {
-			return msg, fmt.Errorf("unable to get environment variable name for image %s: %v", image, err)
+			return "", fmt.Errorf("unable to get environment variable name for image %s: %v", image, err)
 		}
 		imageEnv := fmt.Sprintf("export %s_IMAGE=%s\n", varName, image)
 		_, err = f.WriteString(imageEnv)
 		if err != nil {
-			return msg, fmt.Errorf("unable to write variable %s_IMAGE to file %s: %v", varName, ciuxConfigFile, err)
+			return "", fmt.Errorf("unable to write variable %s_IMAGE to file %s: %v", varName, ciuxConfigFilepath, err)
 		}
 	}
 
@@ -378,40 +402,40 @@ func (p *Project) WriteOutConfig(repositoryPath string) (string, error) {
 	imageEnv := fmt.Sprintf("export CIUX_IMAGE_REGISTRY=%s\n", imageRegistry)
 	_, err = f.WriteString(imageEnv)
 	if err != nil {
-		return msg, fmt.Errorf("unable to write variable CIUX_IMAGE_REGISTRY to file %s: %v", ciuxConfigFile, err)
+		return "", fmt.Errorf("unable to write variable CIUX_IMAGE_REGISTRY to file %s: %v", ciuxConfigFilepath, err)
 	}
 	imageEnv = fmt.Sprintf("export CIUX_IMAGE_NAME=%s\n", p.Image.Name)
 	_, err = f.WriteString(imageEnv)
 	if err != nil {
-		return msg, fmt.Errorf("unable to write variable CIUX_IMAGE_NAME to file %s: %v", ciuxConfigFile, err)
+		return "", fmt.Errorf("unable to write variable CIUX_IMAGE_NAME to file %s: %v", ciuxConfigFilepath, err)
 	}
 	imageTag := p.Image.Tag
 	prefix, err := p.GitMain.GetEnVarPrefix()
 	if err != nil {
-		return msg, fmt.Errorf("unable to get environment variable prefix for project main git repository: %v", err)
+		return "", fmt.Errorf("unable to get environment variable prefix for project main git repository: %v", err)
 	}
 	imageEnv = fmt.Sprintf("# Image which contains latest code source changes %s_VERSION\n", prefix)
 	imageEnv += fmt.Sprintf("export CIUX_IMAGE_TAG=%s\n", imageTag)
 	_, err = f.WriteString(imageEnv)
 	if err != nil {
-		return msg, fmt.Errorf("unable to write variable CIUX_IMAGE_TAG to file %s: %v", ciuxConfigFile, err)
+		return "", fmt.Errorf("unable to write variable CIUX_IMAGE_TAG to file %s: %v", ciuxConfigFilepath, err)
 	}
 
 	imageUrl := fmt.Sprintf("export CIUX_IMAGE_URL=%s\n", p.Image.Url())
 	_, err = f.WriteString(imageUrl)
 	if err != nil {
-		return msg, fmt.Errorf("unable to write variable CIUX_IMAGE_URL to file %s: %v", ciuxConfigFile, err)
+		return "", fmt.Errorf("unable to write variable CIUX_IMAGE_URL to file %s: %v", ciuxConfigFilepath, err)
 	}
 	notInRegistry := "# True if CIUX_IMAGE_URL need to be built\n"
 	notInRegistry += fmt.Sprintf("export CIUX_BUILD=%t\n", !p.Image.InRegistry)
 	_, err = f.WriteString(notInRegistry)
 	if err != nil {
-		return msg, fmt.Errorf("unable to write variable CIUX_BUILD to file %s: %v", ciuxConfigFile, err)
+		return "", fmt.Errorf("unable to write variable CIUX_BUILD to file %s: %v", ciuxConfigFilepath, err)
 	}
 
 	rev, err := p.GitMain.GetHeadRevision()
 	if err != nil {
-		return msg, fmt.Errorf("unable to describe git repository: %v", err)
+		return "", fmt.Errorf("unable to describe git repository: %v", err)
 	}
 
 	// Promoted image
@@ -424,7 +448,7 @@ func (p *Project) WriteOutConfig(repositoryPath string) (string, error) {
 	promotedImageUrl += fmt.Sprintf("export CIUX_PROMOTED_IMAGE_URL=%s", promotedImage.Url())
 	_, err = f.WriteString(promotedImageUrl)
 	if err != nil {
-		return msg, fmt.Errorf("unable to write variable CIUX_IMAGE_URL to file %s: %v", ciuxConfigFile, err)
+		return "", fmt.Errorf("unable to write variable CIUX_IMAGE_URL to file %s: %v", ciuxConfigFilepath, err)
 	}
 
 	// Temporary image
@@ -438,11 +462,11 @@ func (p *Project) WriteOutConfig(repositoryPath string) (string, error) {
 		temporaryImageUrl += fmt.Sprintf("export CIUX_TEMPORARY_IMAGE_URL=%s", temporaryImage.Url())
 		_, err = f.WriteString(temporaryImageUrl)
 		if err != nil {
-			return msg, fmt.Errorf("unable to write variable CIUX_TEMPORARY_IMAGE_URL to file %s: %v", ciuxConfigFile, err)
+			return "", fmt.Errorf("unable to write variable CIUX_TEMPORARY_IMAGE_URL to file %s: %v", ciuxConfigFilepath, err)
 		}
 	}
 
-	msg = fmt.Sprintf("Configuration file:\n  %s", ciuxConfigFile)
+	msg := fmt.Sprintf("Configuration file:\n  %s", ciuxConfigFilepath)
 	return msg, nil
 }
 

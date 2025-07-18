@@ -23,7 +23,7 @@ var envCmd = &cobra.Command{
 		err = project.AddInPlaceDepsSources(depsBasePath)
 		internal.FailOnError(err)
 
-		msg, err := project.WriteOutConfig(repositoryPath)
+		msg, err := project.WriteOutConfig()
 		internal.FailOnError(err)
 		// Use 'refresh' in output message
 		internal.Infof("%s", msg)

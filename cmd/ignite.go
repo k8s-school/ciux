@@ -69,7 +69,7 @@ var igniteCmd = &cobra.Command{
 		internal.Infof("Available Images for dependencies:\n%s", imgMsg)
 
 		// Write project configuration file
-		msg, err := project.WriteOutConfig(repositoryPath)
+		msg, err := project.WriteOutConfig()
 		internal.FailOnError(err)
 		internal.Infof("%s", msg)
 	},
