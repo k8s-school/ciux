@@ -119,7 +119,7 @@ There is a `CIUXCONFIG` generate by `ciux ignite` for each different label selec
 
 4. Build the project
 
-   - To build the project using Ciux, a two-step process is required. It involves sourcing the `CIUXCONFIG` file, which sets essential environment variables, and subsequently running the project's build script that relies on these environment variables.
+To build the project using Ciux, a two-step process is required. It involves sourcing the `CIUXCONFIG` file, which sets essential environment variables, and subsequently running the project's build script that relies on these environment variables.
 
      1. **Source `CIUXCONFIG` to Set Environment Variables:**
 
@@ -135,16 +135,16 @@ There is a `CIUXCONFIG` generate by `ciux ignite` for each different label selec
       fi
      ```
 
-   - Sourcing `CIUXCONFIG` ensures that the environment variables required for the build process are properly configured and accessible.
+     Sourcing `CIUXCONFIG` ensures that the environment variables required for the build process are properly configured and accessible.
 
-5. **Run the Build Script of the Project:**
-   - With the environment variables set by sourcing `CIUXCONFIG`, execute the build script of the project. This script is responsible for compiling, assembling, and generating the project artifacts.
+     2. **Run the Build Script of the Project:**
+        - With the environment variables set by sourcing `CIUXCONFIG`, execute the build script of the project. This script is responsible for compiling, assembling, and generating the project artifacts.
 
-     ```bash
-     $  <project-source-directory>/path/to/build/script.sh
-     ```
+          ```bash
+          $  <project-source-directory>/path/to/build/script.sh
+          ```
 
-   - The build script should be designed to utilize the environment variables set by Ciux, such as source code locations, version details, and any other configurations specified in the `CIUXCONFIG` file.
+        - The build script should be designed to utilize the environment variables set by Ciux, such as source code locations, version details, and any other configurations specified in the `CIUXCONFIG` file.
 
 
 ### Integration Tests
