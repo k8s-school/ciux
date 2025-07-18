@@ -119,25 +119,25 @@ There is a `CIUXCONFIG` generate by `ciux ignite` for each different label selec
 
 4. Build the project
 
-To build the project using Ciux, a two-step process is required. It involves sourcing the `CIUXCONFIG` file, which sets essential environment variables, and subsequently running the project's build script that relies on these environment variables.
+   - To build the project using Ciux, a two-step process is required. It involves sourcing the `CIUXCONFIG` file, which sets essential environment variables, and subsequently running the project's build script that relies on these environment variables.
 
-   1. **Source `CIUXCONFIG` to Set Environment Variables:**
+     1. **Source `CIUXCONFIG` to Set Environment Variables:**
 
-   Prior to initiating the build process, source the `CIUXCONFIG` file to set the necessary environment variables. This file contains crucial information about the project's dependencies, source code locations, and version details.
+     Prior to initiating the build process, source the `CIUXCONFIG` file to set the necessary environment variables. This file contains crucial information about the project's dependencies, source code locations, and version details.
 
-   ```bash
-    # Be careful to use the same label selector than the one used for `ciux ignite`
-    if ciuxconfig=$(ciux get configpath --selector "build" "$git_dir" 2>&1); then
-      source "$ciuxconfig"
-    else
-      echo "Error while loading ciux config : $ciuxconfig" >&2
-      exit 1
-    fi
-   ```
+     ```bash
+      # Be careful to use the same label selector than the one used for `ciux ignite`
+      if ciuxconfig=$(ciux get configpath --selector "build" "$git_dir" 2>&1); then
+        source "$ciuxconfig"
+      else
+        echo "Error while loading ciux config : $ciuxconfig" >&2
+        exit 1
+      fi
+     ```
 
    - Sourcing `CIUXCONFIG` ensures that the environment variables required for the build process are properly configured and accessible.
 
-1. **Run the Build Script of the Project:**
+5. **Run the Build Script of the Project:**
    - With the environment variables set by sourcing `CIUXCONFIG`, execute the build script of the project. This script is responsible for compiling, assembling, and generating the project artifacts.
 
      ```bash
