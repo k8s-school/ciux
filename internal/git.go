@@ -320,6 +320,7 @@ func IsDirty(s git.Status) bool {
 
 func GetRepoRoot(gitRepo *git.Repository) (string, error) {
 	worktree, err := gitRepo.Worktree()
+	slog.Debug("Get worktree", "worktree", worktree.Filesystem.Root())
 	if err != nil {
 		return "", err
 	}

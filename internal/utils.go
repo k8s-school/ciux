@@ -131,3 +131,20 @@ func isDirectory(path string) (bool, error) {
 
 	return fileInfo.IsDir(), err
 }
+
+func HasPrefixInBase(path string, prefix string) bool {
+	base := filepath.Base(path)
+	return strings.HasPrefix(base, prefix)
+}
+
+func FileExists(path string) bool {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true // file exists
+	}
+	if os.IsNotExist(err) {
+		return false // file does not exist
+	}
+	// some other error occurred (e.g. permission)
+	return false
+}

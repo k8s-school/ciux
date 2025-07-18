@@ -295,6 +295,7 @@ func (p *Project) GetCiuxConfigFilepath() (string, error) {
 	var ciuxConfigFile = os.Getenv("CIUXCONFIG")
 	if len(ciuxConfigFile) == 0 {
 		repositoryPath, err := p.GetRepositoryPath()
+		slog.Debug("Get repository path", "repositoryPath", repositoryPath)
 		if err != nil {
 			return "", fmt.Errorf("unable to get repository path: %v", err)
 		}
