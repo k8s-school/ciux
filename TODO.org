@@ -1,5 +1,5 @@
-* TODO Add symolic link $PROJECT_DIR/.ciux/ciux.sh
-* TODO add integration tests!!!
+* TODO Add better/simpler example in doc for build.sh and itest.sh
+* TODO add integration tests if CIUXCONFIG is set (_e2e/test_get_configpath.sh)
 * TODO Improve tag code wrt https://medium.com/@clm160/tag-example-with-go-git-library-4377a84bbf17
 * TODO improve: ciux get image --check /home/fjammes/src/github.com/astrolabsoftware/stackable-hadoop --env -v 5
   take in account files in dirty state?
@@ -9,11 +9,11 @@
 * TODO Add option to generate version for main project (ciux version path), use to compute
 image name, or "ciux get imagename path"
 * TODO Improve message management for go modules
-* TODO Try to avoid loading $CIUXCONFIG at each github step?
 * TODO manage install of v3 go modules
-* DONE Compute dependencies image name w.r.t branch name or latest git version tag
 * TODO Manage image promotion
 ** TODO Add vXXX-untested if image does not exists
 ** TODO Promote image in CI if e2e tests passes, for main branch only
 ** TODO cleanup vXXXX-untested
 * WONTFIX add ciux kindload command?
+* DONE Compute dependencies image name w.r.t branch name or latest git version tag
+* DONE Try to avoid loading $CIUXCONFIG at each github step?
