@@ -70,14 +70,16 @@ dependencies:
 
 ### Prerequisites
 
-1. Defining the `CIUXCONFIG` Variable
+1. The `CIUXCONFIG` Variable
 
-Before using Ciux, the `CIUXCONFIG` variable must be defined.
+This variable store the path to the current project configuration file produced by `ciux`, if undefined, `ciux` will store this file in `<PROJECT_DIR>/.ciux.d`.
+
+Before using Ciux, the `CIUXCONFIG` variable can be defined.
 ```bash
 $ export CIUXCONFIG="$HOME/.ciux/ciux.sh"
 ```
 
-- The `CIUXCONFIG` variable is utilized by Ciux to dynamically retrieve source code and version information during the build and integration testing processes.
+- The `CIUXCONFIG` variable is utilized by `ciux` to dynamically retrieve source code and version information during the build and integration testing processes.
 
 ### Building a simple project with ciux:
 
@@ -96,6 +98,8 @@ export FINK_BROKER_VERSION=v3.1.1-rc1-7-ga4bf010
 export ASTROLABSOFTWARE_FINK_SPARK_PY_IMAGE=gitlab-registry.in2p3.fr/astrolabsoftware/fink/spark-py:k8s-3.4.1
 ```
 
+There is a `CIUXCONFIG` generate by `ciux ignite` for each different label selector. This allow for example to have a different `CIUXCONFIG` for the build or the integration test
+
 3. Explanation:
 
    - The `ciux ignite` command orchestrates the following crucial steps:
@@ -109,24 +113,31 @@ export ASTROLABSOFTWARE_FINK_SPARK_PY_IMAGE=gitlab-registry.in2p3.fr/astrolabsof
 
      4. **Go Package Installation:** Additionally, during the ignite process, Ciux installs Go packages that are essential for the project and its dependencies. This ensures that the required Go packages are available and compatible with the project's build and integration testing.
 
-   - The generated `CIUXCONFIG` variable encapsulates the dynamically determined information about source code locations, versions, and package installations. This variable is crucial for Ciux to maintain a consistent and reproducible development environment during subsequent build and integration processes.
+   - The generated `CIUXCONFIG` file encapsulates the dynamically determined information about source code locations, versions, and package installations. This variable is crucial for Ciux to maintain a consistent and reproducible development environment during subsequent build and integration processes.
 
-   - Utilizing the `CIUXCONFIG` variable, Ciux facilitates a streamlined workflow, automating the setup of dependencies and environment configurations essential for successful integration testing and continuous integration.
+   - Utilizing the `CIUXCONFIG` variables, Ciux facilitates a streamlined workflow, automating the setup of dependencies and environment configurations essential for successful integration testing and continuous integration.
 
 4. Build the project
 
 To build the project using Ciux, a two-step process is required. It involves sourcing the `CIUXCONFIG` file, which sets essential environment variables, and subsequently running the project's build script that relies on these environment variables.
 
-1. **Source `CIUXCONFIG` to Set Environment Variables:**
-   - Prior to initiating the build process, source the `CIUXCONFIG` file to set the necessary environment variables. This file contains crucial information about the project's dependencies, source code locations, and version details.
+   1. **Source `CIUXCONFIG` to Set Environment Variables:**
 
-     ```bash
-     $ source $CIUXCONFIG
-     ```
+   Prior to initiating the build process, source the `CIUXCONFIG` file to set the necessary environment variables. This file contains crucial information about the project's dependencies, source code locations, and version details.
+
+   ```bash
+    # Be careful to use the same label selector than the one used for `ciux ignite`
+    if ciuxconfig=$(ciux get configpath --selector "build" "$git_dir" 2>&1); then
+      source "$ciuxconfig"
+    else
+      echo "Error while loading ciux config : $ciuxconfig" >&2
+      exit 1
+    fi
+   ```
 
    - Sourcing `CIUXCONFIG` ensures that the environment variables required for the build process are properly configured and accessible.
 
-2. **Run the Build Script of the Project:**
+1. **Run the Build Script of the Project:**
    - With the environment variables set by sourcing `CIUXCONFIG`, execute the build script of the project. This script is responsible for compiling, assembling, and generating the project artifacts.
 
      ```bash
