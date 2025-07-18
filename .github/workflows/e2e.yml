@@ -6,7 +6,6 @@ on:
     branches:
       - master
 env:
-  CIUXCONFIG: /tmp/ciux.sh
   GHA_BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
 jobs:
   unit-tests:
@@ -40,6 +39,7 @@ jobs:
           go install .
       - name: Ciux project ignition
         run: |
+          CIUXCONFIG: /tmp/ciux.sh
           ciux ignite --selector ci --branch="$GHA_BRANCH_NAME" $PWD
       - name: Test 'ciux get imagetag'
         run: |
