@@ -119,7 +119,7 @@ There is a `CIUXCONFIG` generate by `ciux ignite` for each different label selec
 
 4. Build the project
 
-To build the project using Ciux, a two-step process is required. It involves sourcing the `CIUXCONFIG` file, which sets essential environment variables, and subsequently running the project's build script that relies on these environment variables.
+   - To build the project using Ciux, a two-step process is required. It involves sourcing the `CIUXCONFIG` file, which sets essential environment variables, and subsequently running the project's build script that relies on these environment variables.
 
      1. **Source `CIUXCONFIG` to Set Environment Variables:**
 
