@@ -11,12 +11,8 @@ $DIR/create_git_repo.sh "$git_dir"
 
 ciux ignite -l "e2e" "$git_dir"
 
-if ciuxconfig=$(ciux get configpath -l "e2e" "$git_dir" 2>&1); then
-    source "$ciuxconfig"
-else
-    echo "Error while loading ciux config : $ciuxconfig" >&2
-    exit 1
-fi
+# TODO create this file in git_dir with 'ciux ignite'
+. $DIR/../.ciux.d/ciuxconfig.sh
 
 expected_ciuxconfig="$tmp_dir/get_configpath/.ciux.d/ciux_e2e.sh"
 check_equal "$expected_ciuxconfig" "$ciuxconfig"
