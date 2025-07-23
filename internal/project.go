@@ -10,6 +10,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/k8s-school/ciux/log"
+	"github.com/k8s-school/ciux/resources"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 )
@@ -291,18 +292,41 @@ func (project *Project) scanRemoteDeps() error {
 	return nil
 }
 
+func (p *Project) GetCiuxConfigDir() (string, error) {
+	repositoryPath, err := p.GetRepositoryPath()
+	if err != nil {
+		return "", fmt.Errorf("unable to get repository path: %v", err)
+	}
+	ciuxCfgDir := filepath.Join(repositoryPath, ".ciux.d")
+	return ciuxCfgDir, nil
+}
+
+func (p *Project) InitCiuxConfigDir() (string, error) {
+	ciuxCfgDir, err := p.GetCiuxConfigDir()
+	if err != nil {
+		return "", fmt.Errorf("unable to get ciux config directory: %v", err)
+	}
+	err = os.MkdirAll(ciuxCfgDir, 0755)
+	if err != nil {
+		return "", fmt.Errorf("unable to create directory %s: %v", ciuxCfgDir, err)
+	}
+	slog.Debug("Create ciux configuration directory", "dir", ciuxCfgDir)
+	// Create a file ciuxconfig.sh in the directory which contains CiuxconfigScript as content
+	ciuxConfigFile := filepath.Join(ciuxCfgDir, "ciuxconfig.sh")
+	err = os.WriteFile(ciuxConfigFile, []byte(resources.CiuxconfigScript), 0644)
+	if err != nil {
+		return "", fmt.Errorf("unable to create ciux config file %s: %v", ciuxConfigFile, err)
+	}
+
+	return ciuxCfgDir, nil
+}
+
 func (p *Project) GetCiuxConfigFilepath() (string, error) {
 	var ciuxConfigFile = os.Getenv("CIUXCONFIG")
 	if len(ciuxConfigFile) == 0 {
-		repositoryPath, err := p.GetRepositoryPath()
-		slog.Debug("Get repository path", "repositoryPath", repositoryPath)
+		ciuxCfgDir, err := p.GetCiuxConfigDir()
 		if err != nil {
-			return "", fmt.Errorf("unable to get repository path: %v", err)
-		}
-		ciuxCfgDir := filepath.Join(repositoryPath, ".ciux.d")
-		err = os.MkdirAll(ciuxCfgDir, 0755)
-		if err != nil {
-			return "", fmt.Errorf("unable to create directory %s: %v", ciuxCfgDir, err)
+			return "", fmt.Errorf("unable to get ciux config directory: %v", err)
 		}
 		ciuxFileName := "ciux" + LabelSelectorToFileName(p.Selector) + ".sh"
 		ciuxConfigFile = filepath.Join(ciuxCfgDir, ciuxFileName)
@@ -321,6 +345,8 @@ func (p *Project) GetRepositoryPath() (string, error) {
 // WriteOutConfig writes out the shell configuration file
 // used be the CI/CD pipeline
 func (p *Project) WriteOutConfig() (string, error) {
+
+	p.InitCiuxConfigDir()
 
 	ciuxConfigFilepath, err := p.GetCiuxConfigFilepath()
 	if err != nil {
