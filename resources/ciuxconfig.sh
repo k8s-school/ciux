@@ -1,18 +1,23 @@
-if [ -z "$selector" ]; then
-  echo "Error: Selector (\$selector)is required." >&2
+# Source the ciux configuration file for the current project and selector.
+# This script is intended to be run in a bash environment.
+
+[ -n "$BASH_VERSION" ] || {
+  echo "This script requires bash to run." >&2
+  exit 1
+}
+
+dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+project_dir=$dir/..
+
+if [ -z "$SELECTOR" ]; then
+  echo "Error: Selector environment variable (\$SELECTOR) is required." >&2
   exit 1
 else
-  echo "Using selector: $selector"
-  selector_opt="--selector $selector"
+  echo "Using selector: $SELECTOR"
+  selector_opt="--selector $SELECTOR"
 fi
 
-git_dir=$(git rev-parse --show-toplevel 2>/dev/null)
-if [ -z "$git_dir" ]; then
-  echo "Not a git repository. Please run this command inside a git repository." >&2
-  exit 1
-fi
-
-if ciuxconfig=$(ciux get configpath $selector_opt "$git_dir" 2>&1); then
+if ciuxconfig=$(ciux get configpath $selector_opt "$project_dir" 2>&1); then
   source "$ciuxconfig"
 else
   echo "Error while loading ciux config : $ciuxconfig" >&2
