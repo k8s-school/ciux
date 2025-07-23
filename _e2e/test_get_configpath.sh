@@ -9,12 +9,12 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 git_dir="$tmp_dir/get_configpath"
 $DIR/create_git_repo.sh "$git_dir"
 
-ciux ignite -l "e2e" "$git_dir"
+selector="e2e"
+ciux ignite -l "$selector" "$git_dir"
 
-# TODO create this file in git_dir with 'ciux ignite'
-. $DIR/../.ciux.d/ciuxconfig.sh
+. $git_dir/.ciux.d/ciuxconfig.sh
 
-expected_ciuxconfig="$tmp_dir/get_configpath/.ciux.d/ciux_e2e.sh"
+expected_ciuxconfig="$tmp_dir/get_configpath/.ciux.d/ciux_${selector}.sh"
 check_equal "$expected_ciuxconfig" "$ciuxconfig"
 
 expected_ciuximageurl="test_url/test_org/get_configpath:$git_tag_v1"
