@@ -1,3 +1,0 @@
-* Add option to generate version for main project (ciux version path), use to compute
-image name, or "ciux get imagename path"
-* Try to avoid loading $CIUXCONFIG at each github step
