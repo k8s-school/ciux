@@ -38,12 +38,13 @@ func NewConfig(repositoryPath string) (ProjConfig, error) {
 }
 
 type DepConfig struct {
-	Url     string     `mapstructure:"url" default:""`
-	Clone   bool       `mapstructure:"clone" default:"false"`
-	Image   string     `mapstructure:"image" default:""`
-	Pull    bool       `mapstructure:"pull" default:"false"`
-	Package string     `mapstructure:"package" default:""`
-	Labels  labels.Set `mapstructure:"labels"`
+	Url      string     `mapstructure:"url" default:""`
+	Clone    bool       `mapstructure:"clone" default:"false"`
+	Image    string     `mapstructure:"image" default:""`
+	Pull     bool       `mapstructure:"pull" default:"false"`
+	Package  string     `mapstructure:"package" default:""`
+	Revision string     `mapstructure:"revision" default:""`
+	Labels   labels.Set `mapstructure:"labels"`
 }
 
 type ProjConfig struct {

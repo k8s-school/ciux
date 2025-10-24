@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/go-git/go-git/v5"
@@ -27,6 +28,8 @@ type Git struct {
 	// Hash for the HEAD of the remote work branch
 	RemoteHash string
 	WorkBranch string
+	// PinnedRevision specifies a specific commit/tag/branch to checkout
+	PinnedRevision string
 }
 
 // GitSemverTagMap ...
@@ -492,6 +495,97 @@ func (repo *Git) CreateBranch(branchName string) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+// HasRevision checks if a specific revision (commit hash, tag, or branch) exists remotely
+func (gitObj *Git) HasRevision(revision string) (bool, string, error) {
+	// First check if it's a branch
+	found, hash, err := gitObj.HasBranch(revision)
+	if err != nil {
+		return false, "", err
+	}
+	if found {
+		return true, hash, nil
+	}
+
+	// Check if it's a tag
+	if gitObj.isRemoteOnly() {
+		remote := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
+			Name: "origin",
+			URLs: []string{gitObj.Url},
+		})
+		refs, err := remote.List(&git.ListOptions{
+			PeelingOption: git.AppendPeeled,
+		})
+		if err != nil {
+			return false, "", fmt.Errorf("unable to list remote references: %v", err)
+		}
+		for _, ref := range refs {
+			if ref.Name().IsTag() && ref.Name().Short() == revision {
+				return true, ref.Hash().String(), nil
+			}
+		}
+	} else {
+		tagIter, err := gitObj.Repository.Tags()
+		if err != nil {
+			return false, "", fmt.Errorf("unable to get tags: %v", err)
+		}
+		err = tagIter.ForEach(func(ref *plumbing.Reference) error {
+			if ref.Name().Short() == revision {
+				found = true
+				hash = ref.Hash().String()
+				return storer.ErrStop
+			}
+			return nil
+		})
+		if err != nil && err != storer.ErrStop {
+			return false, "", fmt.Errorf("unable to iterate tags: %v", err)
+		}
+		if found {
+			return true, hash, nil
+		}
+	}
+
+	// If not a branch or tag, check if it's a valid commit hash
+	// For commit hashes, we can't verify remotely without cloning, so return true if it looks like a hash
+	if len(revision) >= 7 && len(revision) <= 40 {
+		// Check if it's a valid hex string
+		hexPattern := regexp.MustCompile("^[a-fA-F0-9]+$")
+		if hexPattern.MatchString(revision) {
+			return true, revision, nil
+		}
+	}
+
+	return false, "", nil
+}
+
+// CheckoutRevision checks out a specific revision (commit hash, tag, or branch)
+func (gitObj *Git) CheckoutRevision(revision string) error {
+	if gitObj.Repository == nil {
+		return fmt.Errorf("repository not initialized")
+	}
+
+	worktree, err := gitObj.Repository.Worktree()
+	if err != nil {
+		return fmt.Errorf("unable to get worktree: %v", err)
+	}
+
+	// Try to resolve the revision to a hash
+	hash, err := gitObj.Repository.ResolveRevision(plumbing.Revision(revision))
+	if err != nil {
+		return fmt.Errorf("unable to resolve revision %s: %v", revision, err)
+	}
+
+	// Checkout the specific commit
+	err = worktree.Checkout(&git.CheckoutOptions{
+		Hash: *hash,
+	})
+	if err != nil {
+		return fmt.Errorf("unable to checkout revision %s: %v", revision, err)
+	}
+
+	slog.Info("Checked out revision", "url", gitObj.Url, "revision", revision, "hash", hash.String())
 	return nil
 }
 

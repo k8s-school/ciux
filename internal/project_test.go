@@ -398,3 +398,127 @@ func TestFindInRegistryImage(t *testing.T) {
 	require.NoError(err)
 	require.Nil(image)
 }
+
+func TestProjectWithPinnedRevisions(t *testing.T) {
+	require := require.New(t)
+
+	// Create a test project directory
+	projectDir, err := os.MkdirTemp(os.TempDir(), "ciux-project-revision-test-")
+	require.NoError(err)
+	defer os.RemoveAll(projectDir)
+
+	// Create a test dependency repository
+	depGit, err := initGitRepo("ciux-dep-revision-test-")
+	require.NoError(err)
+	depRoot, err := depGit.GetRoot()
+	require.NoError(err)
+	defer os.RemoveAll(depRoot)
+
+	// Create commits and tags in the dependency repository
+	commit1, _, err := depGit.TaggedCommit("first.txt", "first commit", "v1.0.0", true, author)
+	require.NoError(err)
+	_, _, err = depGit.TaggedCommit("second.txt", "second commit", "v2.0.0", true, author)
+	require.NoError(err)
+
+	// Create a project git repository
+	projectGit, err := initGitRepo("ciux-project-main-test-")
+	require.NoError(err)
+	projectRoot, err := projectGit.GetRoot()
+	require.NoError(err)
+	defer os.RemoveAll(projectRoot)
+
+	// Create initial commit in project
+	_, _, err = projectGit.TaggedCommit("project.txt", "project init", "v0.1.0", true, author)
+	require.NoError(err)
+
+	// Create a .ciux configuration file with pinned revision
+	configContent := ProjConfig{
+		Registry: "test-registry.io",
+		Dependencies: []DepConfig{
+			{
+				Url:      "file://" + depRoot,
+				Clone:    true,
+				Revision: commit1.String(), // Pin to first commit
+				Labels:   map[string]string{"test": "true"},
+			},
+		},
+		SourcePathes: []string{"src"},
+	}
+
+	// Write config to project directory
+	configPath := filepath.Join(projectRoot, ".ciux")
+	configFile, err := os.Create(configPath)
+	require.NoError(err)
+	defer configFile.Close()
+
+	yamlData, err := yaml.Marshal(configContent)
+	require.NoError(err)
+	_, err = configFile.Write(yamlData)
+	require.NoError(err)
+
+	// Test NewProject with pinned revision
+	project, err := NewProject(projectRoot, "", false, "test=true")
+	require.NoError(err)
+	require.Len(project.Dependencies, 1)
+
+	dep := project.Dependencies[0]
+	require.NotNil(dep.Git)
+	require.Equal(commit1.String(), dep.Git.PinnedRevision)
+	require.Equal(commit1.String(), dep.Git.WorkBranch)
+
+	// Test RetrieveDepsSources with pinned revision
+	basePath := filepath.Dir(projectRoot)
+	err = project.RetrieveDepsSources(basePath)
+	require.NoError(err)
+
+	// Verify the dependency is checked out to the correct revision
+	depCloneRoot, err := dep.Git.GetRoot()
+	require.NoError(err)
+
+	head, err := dep.Git.Repository.Head()
+	require.NoError(err)
+	require.Equal(commit1.String(), head.Hash().String())
+
+	// Clean up
+	os.RemoveAll(depCloneRoot)
+}
+
+func TestConfigWithRevisionField(t *testing.T) {
+	require := require.New(t)
+
+	// Test configuration parsing with revision field
+	configYAML := `
+apiVersion: v1alpha1
+registry: test-registry.io
+dependencies:
+  - url: https://github.com/example/repo
+    clone: true
+    revision: v1.2.3
+    labels:
+      test: "true"
+  - url: https://github.com/example/repo2
+    clone: true
+    revision: abc123def456
+    labels:
+      build: "true"
+`
+
+	// Create a temporary config file
+	tempDir, err := os.MkdirTemp(os.TempDir(), "ciux-config-test-")
+	require.NoError(err)
+	defer os.RemoveAll(tempDir)
+
+	configPath := filepath.Join(tempDir, ".ciux")
+	err = os.WriteFile(configPath, []byte(configYAML), 0644)
+	require.NoError(err)
+
+	// Parse configuration
+	config, err := NewConfig(tempDir)
+	require.NoError(err)
+
+	require.Len(config.Dependencies, 2)
+	require.Equal("v1.2.3", config.Dependencies[0].Revision)
+	require.Equal("abc123def456", config.Dependencies[1].Revision)
+	require.Equal("https://github.com/example/repo", config.Dependencies[0].Url)
+	require.Equal("https://github.com/example/repo2", config.Dependencies[1].Url)
+}

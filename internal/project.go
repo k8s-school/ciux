@@ -101,6 +101,10 @@ func NewProject(repository_path string, forcedBranch string, mainProjectOnly boo
 						Url: depConfig.Url,
 					},
 				}
+				// Store the revision in the Git object for later use
+				if depConfig.Revision != "" {
+					dep.Git.PinnedRevision = depConfig.Revision
+				}
 			}
 			if selectors.Matches(depConfig.Labels) {
 				slog.Debug("Dependencies selected", "labels", depConfig.Labels, "dep", dep)
@@ -166,10 +170,20 @@ func (p *Project) RetrieveDepsSources(basePath string) error {
 	slog.Debug("Retrieve dependencies sources locally", "basePath", basePath)
 	for i, dep := range p.Dependencies {
 		if dep.Clone {
-			singleBranch := true
+			// If we have a pinned revision, clone the entire repository
+			// so we can checkout any commit/tag
+			singleBranch := dep.Git.PinnedRevision == ""
 			err := p.Dependencies[i].Git.CloneOrOpen(basePath, singleBranch)
 			if err != nil {
 				return fmt.Errorf("unable to set git repository %s: %v", p.Dependencies[i].Git.Url, err)
+			}
+
+			// If a specific revision is pinned, checkout that revision
+			if dep.Git.PinnedRevision != "" {
+				err = p.Dependencies[i].Git.CheckoutRevision(dep.Git.PinnedRevision)
+				if err != nil {
+					return fmt.Errorf("unable to checkout revision %s for repository %s: %v", dep.Git.PinnedRevision, p.Dependencies[i].Git.Url, err)
+				}
 			}
 		}
 	}
@@ -264,22 +278,39 @@ func (project *Project) scanRemoteDeps() error {
 			if err != nil {
 				return fmt.Errorf("unable to ls-remote for dependency repository %s: %v", dep.Git.Url, err)
 			}
-			var hasBranch bool
-			hasBranch, hash, err = dep.Git.HasBranch(project.GitMain.WorkBranch)
-			if err != nil {
-				return fmt.Errorf("unable to check branch existence for dependency repository %s: %v", dep.Git.Url, err)
-			}
-			if hasBranch {
-				dep.Git.WorkBranch = project.GitMain.WorkBranch
-			} else {
-				var main string
-				main, hash, err = dep.Git.MainBranch()
+
+			// If a specific revision is pinned, validate it exists remotely
+			if dep.Git.PinnedRevision != "" {
+				var hasRevision bool
+				hasRevision, hash, err = dep.Git.HasRevision(dep.Git.PinnedRevision)
 				if err != nil {
-					return fmt.Errorf("unable to get main branch for project repository %s: %v", project.GitMain.Url, err)
+					return fmt.Errorf("unable to check revision existence for dependency repository %s: %v", dep.Git.Url, err)
 				}
-				dep.Git.WorkBranch = main
+				if !hasRevision {
+					return fmt.Errorf("pinned revision %s not found in dependency repository %s", dep.Git.PinnedRevision, dep.Git.Url)
+				}
+				dep.Git.WorkBranch = dep.Git.PinnedRevision
+				dep.Git.RemoteHash = hash
+				slog.Info("Using pinned revision for dependency", "url", dep.Git.Url, "revision", dep.Git.PinnedRevision)
+			} else {
+				// Default behavior: use same branch as main project or fallback to main branch
+				var hasBranch bool
+				hasBranch, hash, err = dep.Git.HasBranch(project.GitMain.WorkBranch)
+				if err != nil {
+					return fmt.Errorf("unable to check branch existence for dependency repository %s: %v", dep.Git.Url, err)
+				}
+				if hasBranch {
+					dep.Git.WorkBranch = project.GitMain.WorkBranch
+				} else {
+					var main string
+					main, hash, err = dep.Git.MainBranch()
+					if err != nil {
+						return fmt.Errorf("unable to get main branch for project repository %s: %v", project.GitMain.Url, err)
+					}
+					dep.Git.WorkBranch = main
+				}
+				dep.Git.RemoteHash = hash
 			}
-			dep.Git.RemoteHash = hash
 		}
 	}
 	if log.IsDebugEnabled() {

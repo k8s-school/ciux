@@ -1,4 +1,6 @@
-* TODO Add better/simpler example in doc for build.sh and itest.sh
+* DOC
+** TODO Add better/simpler example in doc for build.sh and itest.sh
+** TODO Add example for discovering ciux get --help commands
 * TODO add integration tests if CIUXCONFIG is set (_e2e/test_get_configpath.sh)
 * TODO Improve tag code wrt https://medium.com/@clm160/tag-example-with-go-git-library-4377a84bbf17
 * TODO improve: ciux get image --check /home/fjammes/src/github.com/astrolabsoftware/stackable-hadoop --env -v 5

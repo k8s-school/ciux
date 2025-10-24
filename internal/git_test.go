@@ -490,3 +490,93 @@ func TestGetRoot(t *testing.T) {
 
 	require.True(HasPrefixInBase(root, repoPrefix))
 }
+
+func TestHasRevision(t *testing.T) {
+	require := require.New(t)
+
+	// Create a test repository
+	gitObj, err := initGitRepo("ciux-git-hasrevision-test-")
+	require.NoError(err)
+	root, err := gitObj.GetRoot()
+	require.NoError(err)
+	defer os.RemoveAll(root)
+
+	// Create initial commit with tag
+	commit1, _, err := gitObj.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
+	require.NoError(err)
+
+	// Create a branch
+	branchName := "test-branch"
+	err = gitObj.CreateBranch(branchName)
+	require.NoError(err)
+
+	// Test HasRevision for branch
+	found, hash, err := gitObj.HasRevision(branchName)
+	require.NoError(err)
+	require.True(found)
+	require.NotEmpty(hash)
+
+	// Test HasRevision for tag
+	found, hash, err = gitObj.HasRevision("v1.0.0")
+	require.NoError(err)
+	require.True(found)
+	require.NotEmpty(hash)
+
+	// Test HasRevision for commit hash
+	found, hash, err = gitObj.HasRevision(commit1.String())
+	require.NoError(err)
+	require.True(found)
+	require.Equal(commit1.String(), hash)
+
+	// Test HasRevision for non-existent revision
+	found, _, err = gitObj.HasRevision("non-existent")
+	require.NoError(err)
+	require.False(found)
+}
+
+func TestCheckoutRevision(t *testing.T) {
+	require := require.New(t)
+
+	// Create a test repository
+	gitObj, err := initGitRepo("ciux-git-checkout-revision-test-")
+	require.NoError(err)
+	root, err := gitObj.GetRoot()
+	require.NoError(err)
+	defer os.RemoveAll(root)
+
+	// Create initial commit with tag
+	commit1, _, err := gitObj.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
+	require.NoError(err)
+
+	// Create second commit
+	commit2, _, err := gitObj.TaggedCommit("second.txt", "second", "v2.0.0", true, author)
+	require.NoError(err)
+
+	// Verify we're on the second commit
+	head, err := gitObj.Repository.Head()
+	require.NoError(err)
+	require.Equal(commit2.String(), head.Hash().String())
+
+	// Checkout to first commit by hash
+	err = gitObj.CheckoutRevision(commit1.String())
+	require.NoError(err)
+
+	// Verify we're now on the first commit
+	head, err = gitObj.Repository.Head()
+	require.NoError(err)
+	require.Equal(commit1.String(), head.Hash().String())
+
+	// Checkout to tag
+	err = gitObj.CheckoutRevision("v2.0.0")
+	require.NoError(err)
+
+	// Verify we're back on the second commit
+	head, err = gitObj.Repository.Head()
+	require.NoError(err)
+	require.Equal(commit2.String(), head.Hash().String())
+
+	// Test error case with invalid revision
+	err = gitObj.CheckoutRevision("invalid-revision")
+	require.Error(err)
+	require.Contains(err.Error(), "unable to resolve revision")
+}
