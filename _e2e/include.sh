@@ -1,7 +1,8 @@
 export tmp_dir=$(mktemp -d)
 export git_tag_v1="v1.0.0"
 
-CIUXCONFIG=$(ciux get configpath -l ci $DIR)
+project_dir=$(basename "$DIR")
+CIUXCONFIG=$(ciux get configpath -l ci "$project_dir")
 . $CIUXCONFIG
 
 function check_equal() {
