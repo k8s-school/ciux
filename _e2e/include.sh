@@ -1,6 +1,9 @@
 export tmp_dir=$(mktemp -d)
 export git_tag_v1="v1.0.0"
 
+CIUXCONFIG=$(ciux get configpath -l ci $DIR)
+. $CIUXCONFIG
+
 function check_equal() {
     if [ "$1" != "$2" ]; then
         ink -r "Expected ciux output ($1) to equal $2"
