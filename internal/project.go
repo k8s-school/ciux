@@ -25,6 +25,7 @@ type Project struct {
 	ForcedBranch      string
 	TemporaryRegistry string
 	Selector          labels.Selector
+	Config            ProjConfig
 }
 
 func NewCoreProject(repository_path string, forcedBranch string) (Project, ProjConfig, error) {
@@ -57,6 +58,7 @@ func NewCoreProject(repository_path string, forcedBranch string) (Project, ProjC
 		ImageRegistry: config.Registry,
 		ForcedBranch:  forcedBranch,
 		Selector:      labels.NewSelector().Add(*req),
+		Config:        config,
 	}
 	return p, config, nil
 }
@@ -114,9 +116,17 @@ func NewProject(repository_path string, forcedBranch string, mainProjectOnly boo
 	return p, nil
 }
 
+// GetName returns the project name from config if available, otherwise from directory name
+func (p *Project) GetName() (string, error) {
+	if p.Config.Project != "" {
+		return p.Config.Project, nil
+	}
+	return p.GitMain.GetName()
+}
+
 func (p *Project) String() string {
 
-	name, err := p.GitMain.GetName()
+	name, err := p.GetName()
 	if err != nil {
 		return fmt.Sprintf("unable to get project name: %v", err)
 	}
@@ -529,7 +539,7 @@ func (project *Project) GetImageName(suffix string, checkRegistry bool) error {
 		}
 		slog.Info("Project image with latest code changes", "hash", hashes[0], "version", rev.GetVersion())
 	}
-	imageName, err := gitMain.GetName()
+	imageName, err := project.GetName()
 	if err != nil {
 		return fmt.Errorf("unable to get project name: %v", err)
 	}

@@ -398,3 +398,59 @@ func TestFindInRegistryImage(t *testing.T) {
 	require.NoError(err)
 	require.Nil(image)
 }
+
+func TestProjectGetName(t *testing.T) {
+
+	tests := []struct {
+		name           string
+		projectConfig  string
+		expectedName   string
+		useConfigName  bool
+	}{
+		{
+			name:          "project name from config",
+			projectConfig: "project: my-custom-project\nregistry: test-registry",
+			expectedName:  "my-custom-project",
+			useConfigName: true,
+		},
+		{
+			name:          "fallback to directory name when no project in config",
+			projectConfig: "registry: test-registry",
+			expectedName:  "", // Will be set to directory name in test
+			useConfigName: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create temporary directory
+			tmpDir, err := os.MkdirTemp("", "ciux-test-*")
+			require.NoError(t, err)
+			defer os.RemoveAll(tmpDir)
+
+			// Initialize git repo
+			_, err = git.PlainInit(tmpDir, false)
+			require.NoError(t, err)
+
+			// Create .ciux config file
+			configPath := filepath.Join(tmpDir, ".ciux")
+			err = os.WriteFile(configPath, []byte(tt.projectConfig), 0644)
+			require.NoError(t, err)
+
+			// Create a project
+			project, _, err := NewCoreProject(tmpDir, "")
+			require.NoError(t, err)
+
+			// Test GetName
+			actualName, err := project.GetName()
+			require.NoError(t, err)
+
+			if tt.useConfigName {
+				require.Equal(t, tt.expectedName, actualName)
+			} else {
+				// When no project name in config, should fallback to directory name
+				require.Equal(t, filepath.Base(tmpDir), actualName)
+			}
+		})
+	}
+}
