@@ -1,7 +1,8 @@
 export tmp_dir=$(mktemp -d)
 export git_tag_v1="v1.0.0"
 
-project_dir=$(basename "$DIR")
+# project_dir is the absolute name of the git repository
+project_dir=$DIR/..
 CIUXCONFIG=$(ciux get configpath -l ci "$project_dir")
 . $CIUXCONFIG
 
