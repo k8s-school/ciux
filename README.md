@@ -41,7 +41,7 @@ Prerequisites:
 To install Ciux, use the following command:
 
 ```bash
-$ go install github.com/k8s-school/ciux@v0.0.6-rc2
+$ go install github.com/k8s-school/ciux@v0.0.7-rc1
 ```
 
 ### Configuration
