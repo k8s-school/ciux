@@ -37,6 +37,7 @@ Highly valuable in a Continuous Integration (CI) environment, Ciux keeps a compr
 Prerequisites:
 - Go 1.23+ installed and configured
 - Go binary path in your PATH: `export PATH=$(go env GOPATH)/bin:$PATH`
+  - Add this to your shell configuration file (`.bashrc`, `.zshrc`, etc.) to make it permanent
 
 To install Ciux, use the following command:
 
