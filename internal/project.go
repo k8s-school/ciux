@@ -530,7 +530,7 @@ func (project *Project) GetImageName(suffix string, checkRegistry bool) error {
 	gitMain.GetRoot()
 	hashes, err := FindCodeChange(gitMain.Repository, head.Hash(), project.SourcePathes)
 	if err != nil {
-		return fmt.Errorf("unable to find code change in repository %s: %v", gitMain.Url, err)
+		return fmt.Errorf("unable to investigate for code change in repository %s: %v", gitMain.Url, err)
 	}
 	if len(hashes) != 0 {
 		rev, err := gitMain.GetRevision(hashes[0])
