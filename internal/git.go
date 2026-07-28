@@ -27,6 +27,10 @@ type Git struct {
 	// Hash for the HEAD of the remote work branch
 	RemoteHash string
 	WorkBranch string
+	// Branch checked out in an in-place repository, empty for a detached HEAD.
+	// Only set for in-place repositories: ciux checks out the work branch
+	// itself when it clones.
+	LocalBranch string
 }
 
 // GitSemverTagMap ...
@@ -161,7 +165,9 @@ func (gitObj *Git) OpenIfExists(destBasePath string) error {
 // destBasePath is the base path where the repository will be cloned,
 // if empty a temporary directory is created
 // if singleBranch is true, only the work branch is cloned
-func (gitObj *Git) CloneOrOpen(destBasePath string, singleBranch bool) error {
+// if refresh is true, a pre-existing repository is removed and cloned again,
+// so that it is on the work branch instead of the state left by a previous run
+func (gitObj *Git) CloneOrOpen(destBasePath string, singleBranch bool, refresh bool) error {
 	name, err := gitObj.GetName()
 	if err != nil {
 		return fmt.Errorf("unable to get name from url %s: %v", gitObj.Url, err)
@@ -175,6 +181,12 @@ func (gitObj *Git) CloneOrOpen(destBasePath string, singleBranch bool) error {
 	} else {
 
 		destPath = filepath.Join(destBasePath, name)
+		if refresh {
+			err := removeClone(destPath, gitObj.Url)
+			if err != nil {
+				return err
+			}
+		}
 		slog.Debug("Creating source directory", "path", destPath)
 		err := os.MkdirAll(destPath, 0755)
 		if err != nil {
@@ -204,11 +216,69 @@ func (gitObj *Git) CloneOrOpen(destBasePath string, singleBranch bool) error {
 		if err != nil {
 			return fmt.Errorf("unable to open git repository %s: %v", gitObj.Url, err)
 		}
+		gitObj.Repository = repository
+		gitObj.checkWorkBranch(destPath)
+		return nil
 	} else if err != nil {
 		return fmt.Errorf("unable to clone git repository %s: %v", gitObj.Url, err)
 	}
 	gitObj.Repository = repository
 	return nil
+}
+
+// removeClone deletes a pre-existing clone so that CloneOrOpen can clone the
+// repository again on its work branch. An in-place clone is never refreshed by
+// a fetch: it is usually cloned with a single branch, so the work branch is
+// simply not fetchable from it.
+// Uncommitted work is never destroyed silently: a dirty worktree aborts here.
+func removeClone(destPath string, url string) error {
+	repository, err := git.PlainOpen(destPath)
+	if err == git.ErrRepositoryNotExists {
+		// Nothing cloned yet, nothing to remove
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("unable to open git repository %s: %v", destPath, err)
+	}
+	worktree, err := repository.Worktree()
+	if err != nil {
+		return fmt.Errorf("unable to get worktree for git repository %s: %v", destPath, err)
+	}
+	status, err := worktree.Status()
+	if err != nil {
+		return fmt.Errorf("unable to get status for git repository %s: %v", destPath, err)
+	}
+	if IsDirty(status) {
+		return fmt.Errorf("refusing to refresh git repository %s: local changes in %s, "+
+			"commit or stash them, or remove the directory", url, destPath)
+	}
+	slog.Warn("Removing dependency clone before cloning it again", "url", url, "path", destPath)
+	return os.RemoveAll(destPath)
+}
+
+// checkWorkBranch warns when an in-place repository is not on the work branch,
+// and records the branch it is on. ciux leaves such a repository untouched, as
+// it may hold work in progress: on a persistent workspace (a self-hosted CI
+// runner reusing its _work directory) it silently pins the dependency to
+// whatever a previous run left there. --refresh-deps clones it again.
+func (gitObj *Git) checkWorkBranch(destPath string) {
+	head, err := gitObj.Repository.Head()
+	if err != nil {
+		slog.Debug("Unable to find head of in place repository", "url", gitObj.Url, "error", err)
+		return
+	}
+	if head.Name().IsBranch() {
+		gitObj.LocalBranch = head.Name().Short()
+	}
+	if gitObj.LocalBranch == gitObj.WorkBranch {
+		return
+	}
+	local := "a detached HEAD"
+	if gitObj.LocalBranch != "" {
+		local = fmt.Sprintf("branch '%s'", gitObj.LocalBranch)
+	}
+	Warnf("WARNING: in place repository %s is on %s, work branch is '%s'\n"+
+		"  %s is used as is, run ciux with --refresh-deps to clone it again",
+		gitObj.Url, local, gitObj.WorkBranch, destPath)
 }
 
 // LsRemote returns branches and tag of a remote repository

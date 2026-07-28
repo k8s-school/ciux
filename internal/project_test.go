@@ -26,7 +26,7 @@ func setupFinkBrokerProject() (Project, error) {
 		Url:        finkBrokerRepoUrl,
 		WorkBranch: "master",
 	}
-	err := gitObj.CloneOrOpen("", true)
+	err := gitObj.CloneOrOpen("", true, false)
 	if err != nil {
 		return Project{}, err
 	}
@@ -202,7 +202,7 @@ func TestWriteOutConfig(t *testing.T) {
 	require.NoError(err)
 	tmpDir, err := os.MkdirTemp("", "ciux-writeoutconfig-test-projectdeps-")
 	require.NoError(err)
-	project.RetrieveDepsSources(tmpDir)
+	project.RetrieveDepsSources(tmpDir, false)
 	ciuxConfig := filepath.Join(root, "ciux.sh")
 	os.Setenv("CIUXCONFIG", ciuxConfig)
 	_, err = project.WriteOutConfig()
@@ -453,4 +453,28 @@ func TestProjectGetName(t *testing.T) {
 			}
 		})
 	}
+}
+
+// The generated shell configuration file must tell that a dependency was not
+// cloned by this run, and warn when its version is then not the one of the
+// work branch
+func TestInPlaceComment(t *testing.T) {
+	require := require.New(t)
+
+	cloned := &Git{WorkBranch: "master"}
+	require.Empty(inPlaceComment(cloned, "FINK_ALERT_SIMULATOR"))
+
+	onWorkBranch := &Git{InPlace: true, WorkBranch: "master", LocalBranch: "master"}
+	comment := inPlaceComment(onWorkBranch, "FINK_ALERT_SIMULATOR")
+	require.Contains(comment, "# FINK_ALERT_SIMULATOR: repository already in the workspace")
+	require.NotContains(comment, "WARNING")
+
+	stale := &Git{InPlace: true, WorkBranch: "1216-run-fink-broker", LocalBranch: "master"}
+	comment = inPlaceComment(stale, "FINK_ALERT_SIMULATOR")
+	require.Contains(comment, "# WARNING: FINK_ALERT_SIMULATOR_VERSION below comes from branch 'master', "+
+		"not from FINK_ALERT_SIMULATOR_WORKBRANCH")
+
+	detached := &Git{InPlace: true, WorkBranch: "master"}
+	comment = inPlaceComment(detached, "FINK_ALERT_SIMULATOR")
+	require.Contains(comment, "comes from a detached HEAD")
 }

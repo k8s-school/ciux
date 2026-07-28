@@ -102,10 +102,14 @@ func TestGetHeadRevision(t *testing.T) {
 	require.NoError(err)
 	getHeadRevisionTest(require, gitMeta, "v1.0.0", 0, commit1.String(), false)
 
-	commit2, _ := worktree.Commit("second", &git.CommitOptions{Author: &author})
+	// Counting commits since the tag is what matters here, their content does
+	// not: go-git rejects empty commits unless allowed explicitly
+	commit2, err := worktree.Commit("second", &git.CommitOptions{Author: &author, AllowEmptyCommits: true})
+	require.NoError(err)
 	getHeadRevisionTest(require, gitMeta, "v1.0.0", 1, commit2.String(), false)
 
-	commit3, _ := worktree.Commit("third", &git.CommitOptions{Author: &author})
+	commit3, err := worktree.Commit("third", &git.CommitOptions{Author: &author, AllowEmptyCommits: true})
+	require.NoError(err)
 	getHeadRevisionTest(require, gitMeta, "v1.0.0", 2, commit3.String(), false)
 
 	// Ignore non annotated tag
@@ -271,7 +275,7 @@ func TestCloneWorkBranch(t *testing.T) {
 		WorkBranch: branchName,
 	}
 
-	err = gitObj.CloneOrOpen("", true)
+	err = gitObj.CloneOrOpen("", true, false)
 	require.NoError(err)
 	cloneRoot, err := gitObj.GetRoot()
 	require.NoError(err)
@@ -287,6 +291,109 @@ func TestCloneWorkBranch(t *testing.T) {
 
 	os.RemoveAll(rootOrigin)
 	os.RemoveAll(cloneRoot)
+}
+
+// A dependency already cloned in the base path is used as is, whatever branch
+// it is on: this is what pins a dependency to a stale revision on a CI runner
+// which reuses its workspace. Refreshing clones it again on the work branch.
+func TestCloneOrOpenRefresh(t *testing.T) {
+	require := require.New(t)
+
+	gitOrigin, err := initGitRepo("ciux-git-refresh-test-")
+	require.NoError(err)
+	rootOrigin, err := gitOrigin.GetRoot()
+	require.NoError(err)
+	defer os.RemoveAll(rootOrigin)
+	_, _, err = gitOrigin.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
+	require.NoError(err)
+
+	depsPath, err := os.MkdirTemp(os.TempDir(), "ciux-git-refresh-deps-")
+	require.NoError(err)
+	defer os.RemoveAll(depsPath)
+
+	// First run: nothing in the base path yet, the dependency is cloned
+	gitObj := &Git{
+		Url:        "file://" + rootOrigin,
+		WorkBranch: "master",
+	}
+	err = gitObj.CloneOrOpen(depsPath, true, false)
+	require.NoError(err)
+	require.False(gitObj.InPlace)
+
+	// The dependency moves on: work branch created, with a newer tag
+	branchName := "testbranch"
+	err = gitOrigin.CreateBranch(branchName)
+	require.NoError(err)
+	_, _, err = gitOrigin.TaggedCommit("second.txt", "second", "v2.0.0", true, author)
+	require.NoError(err)
+
+	// Second run in the same base path: the clone is left untouched, so it is
+	// still on master and its version is the stale one
+	inPlace := &Git{
+		Url:        "file://" + rootOrigin,
+		WorkBranch: branchName,
+	}
+	err = inPlace.CloneOrOpen(depsPath, true, false)
+	require.NoError(err)
+	require.True(inPlace.InPlace)
+	require.Equal("master", inPlace.LocalBranch)
+	rev, err := inPlace.GetHeadRevision()
+	require.NoError(err)
+	require.Equal("v1.0.0", rev.Tag)
+
+	// Same base path, with refresh: cloned again on the work branch
+	refreshed := &Git{
+		Url:        "file://" + rootOrigin,
+		WorkBranch: branchName,
+	}
+	err = refreshed.CloneOrOpen(depsPath, true, true)
+	require.NoError(err)
+	require.False(refreshed.InPlace)
+	head, err := refreshed.Repository.Head()
+	require.NoError(err)
+	require.Equal(branchName, head.Name().Short())
+	rev, err = refreshed.GetHeadRevision()
+	require.NoError(err)
+	require.Equal("v2.0.0", rev.Tag)
+}
+
+// Refreshing removes a clone, so it must never sacrifice uncommitted work
+func TestCloneOrOpenRefreshDirty(t *testing.T) {
+	require := require.New(t)
+
+	gitOrigin, err := initGitRepo("ciux-git-refreshdirty-test-")
+	require.NoError(err)
+	rootOrigin, err := gitOrigin.GetRoot()
+	require.NoError(err)
+	defer os.RemoveAll(rootOrigin)
+	_, _, err = gitOrigin.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
+	require.NoError(err)
+
+	depsPath, err := os.MkdirTemp(os.TempDir(), "ciux-git-refreshdirty-deps-")
+	require.NoError(err)
+	defer os.RemoveAll(depsPath)
+
+	gitObj := &Git{
+		Url:        "file://" + rootOrigin,
+		WorkBranch: "master",
+	}
+	err = gitObj.CloneOrOpen(depsPath, true, false)
+	require.NoError(err)
+	cloneRoot, err := gitObj.GetRoot()
+	require.NoError(err)
+
+	// Local changes in the clone: refreshing must fail instead of removing it
+	err = os.WriteFile(filepath.Join(cloneRoot, "first.txt"), []byte("work in progress"), 0644)
+	require.NoError(err)
+
+	dirty := &Git{
+		Url:        "file://" + rootOrigin,
+		WorkBranch: "master",
+	}
+	err = dirty.CloneOrOpen(depsPath, true, true)
+	require.ErrorContains(err, "local changes")
+	_, err = os.Stat(cloneRoot)
+	require.NoError(err)
 }
 
 func TestMainBranch(t *testing.T) {
@@ -330,7 +437,7 @@ func TestMainBranch(t *testing.T) {
 			Url: tt.url,
 		}
 		if tt.clone {
-			err := gitObj.CloneOrOpen("", false)
+			err := gitObj.CloneOrOpen("", false, false)
 			require.NoError(err)
 		}
 		mainBranch, _, err = gitObj.MainBranch()

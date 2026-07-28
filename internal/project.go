@@ -172,12 +172,15 @@ func (p *Project) String() string {
 	return msg
 }
 
-func (p *Project) RetrieveDepsSources(basePath string) error {
-	slog.Debug("Retrieve dependencies sources locally", "basePath", basePath)
+// RetrieveDepsSources clones the dependencies which ask for it.
+// if refresh is true, dependencies already cloned in basePath are removed and
+// cloned again, so that a persistent workspace behaves like a fresh one
+func (p *Project) RetrieveDepsSources(basePath string, refresh bool) error {
+	slog.Debug("Retrieve dependencies sources locally", "basePath", basePath, "refresh", refresh)
 	for i, dep := range p.Dependencies {
 		if dep.Clone {
 			singleBranch := true
-			err := p.Dependencies[i].Git.CloneOrOpen(basePath, singleBranch)
+			err := p.Dependencies[i].Git.CloneOrOpen(basePath, singleBranch, refresh)
 			if err != nil {
 				return fmt.Errorf("unable to set git repository %s: %v", p.Dependencies[i].Git.Url, err)
 			}
@@ -352,6 +355,26 @@ func (p *Project) GetRepositoryPath() (string, error) {
 	return repositoryPath, nil
 }
 
+// inPlaceComment documents a dependency which was not cloned by this run: it
+// already existed in the workspace and ciux used it as is, so its version is
+// the one of whatever is checked out there.
+func inPlaceComment(gitObj *Git, varName string) string {
+	if !gitObj.InPlace {
+		return ""
+	}
+	comment := fmt.Sprintf("# %s: repository already in the workspace, used as is\n"+
+		"# (run ciux with --refresh-deps to clone it again)\n", varName)
+	if gitObj.LocalBranch != gitObj.WorkBranch {
+		local := "a detached HEAD"
+		if gitObj.LocalBranch != "" {
+			local = fmt.Sprintf("branch '%s'", gitObj.LocalBranch)
+		}
+		comment += fmt.Sprintf("# WARNING: %s_VERSION below comes from %s, not from %s_WORKBRANCH\n",
+			varName, local, varName)
+	}
+	return comment
+}
+
 // WriteOutConfig writes out the shell configuration file
 // used be the CI/CD pipeline
 func (p *Project) WriteOutConfig() (string, error) {
@@ -392,6 +415,11 @@ func (p *Project) WriteOutConfig() (string, error) {
 			root, err := gitObj.GetRoot()
 			if err != nil {
 				return "", fmt.Errorf("unable to get root of git repository: %v", err)
+			}
+
+			_, err = f.WriteString(inPlaceComment(gitObj, varName))
+			if err != nil {
+				return "", fmt.Errorf("unable to write in place comment to file %s: %v", ciuxConfigFilepath, err)
 			}
 
 			depEnv := fmt.Sprintf("export %s_DIR=%s\n", varName, root)

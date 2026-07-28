@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/k8s-school/ciux/cmd/util"
@@ -11,6 +13,15 @@ import (
 
 var branch string
 var main bool
+var refreshDeps bool
+
+// envBool returns the boolean value of an environment variable, false if it is
+// unset or not a boolean. Used to default a flag from the environment, so that
+// CI pipelines can enable it without editing every ciux invocation.
+func envBool(name string) bool {
+	value, err := strconv.ParseBool(os.Getenv(name))
+	return err == nil && value
+}
 
 // igniteCmd represents the revision command
 var igniteCmd = &cobra.Command{
@@ -39,7 +50,7 @@ var igniteCmd = &cobra.Command{
 		depsBasePath := filepath.Dir(repositoryPath)
 
 		// Retrieve dependencies sources
-		err = project.RetrieveDepsSources(depsBasePath)
+		err = project.RetrieveDepsSources(depsBasePath, refreshDeps)
 		internal.FailOnError(err)
 
 		// Install dependencies Go modules
@@ -80,6 +91,9 @@ func init() {
 
 	// Here you will define your flags and configuration settings.
 	igniteCmd.Flags().BoolVarP(&main, "main", "m", false, "Only work with main project, ignore dependencies, --selector is ignored")
+	igniteCmd.Flags().BoolVar(&refreshDeps, "refresh-deps", envBool("CIUX_REFRESH_DEPS"),
+		"Remove the dependencies already cloned in the workspace and clone them again on their work branch. "+
+			"Default: $CIUX_REFRESH_DEPS. Without it, such a repository is used as is, whatever branch it is on")
 	igniteCmd.PersistentFlags().StringVarP(&branch, "branch", "b", "", "current branch for the project, retrieved from git if not specified")
 	igniteCmd.Flags().StringVarP(&suffix, "suffix", "p", "", "Suffix to add to the image name")
 	igniteCmd.Flags().StringVarP(&tmpRegistry, "tmp-registry", "t", "", "Name of temporary registry used to store the image during the ci process")
