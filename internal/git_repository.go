@@ -71,6 +71,7 @@ func FindCodeChange(repository *git.Repository, fromHash plumbing.Hash, pathes [
 	}
 
 	var parent *object.Commit
+	changed := false
 	for len(current.ParentHashes) != 0 {
 		parent, err = current.Parent(0)
 		if err != nil {
@@ -78,15 +79,20 @@ func FindCodeChange(repository *git.Repository, fromHash plumbing.Hash, pathes [
 		}
 		slog.Info("Current commit", "hash", current.Hash)
 		slog.Info("Parent commit", "hash", parent.Hash)
-		changed, err := HasDiff(current, parent, root, pathes)
+		changed, err = HasDiff(current, parent, root, pathes)
 		if err != nil {
 			return hashes, err
-		} else if changed {
-			hashes = append(hashes, current.Hash)
-			break
 		}
 		hashes = append(hashes, current.Hash)
+		if changed {
+			break
+		}
 		current = parent
+	}
+	// No code change found up to the root commit: the root commit introduced
+	// the source code, so it is a candidate too
+	if !changed {
+		hashes = append(hashes, current.Hash)
 	}
 	slices.Reverse(hashes)
 	return hashes, nil
