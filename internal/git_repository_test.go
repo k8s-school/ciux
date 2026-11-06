@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/stretchr/testify/require"
 )
 
@@ -158,4 +159,26 @@ func TestFindCodeChange(t *testing.T) {
 	require.Len(hashes, 3)
 	require.Contains(hashes, *hash3)
 	require.Contains(hashes, *hash4)
+}
+
+func TestFindCodeChangeInRootCommit(t *testing.T) {
+	require := require.New(t)
+
+	gitObj, err := initGitRepo("ciux-rootcommit-test-")
+	require.NoError(err)
+	repo := gitObj.Repository
+
+	root, err := gitObj.GetRoot()
+	require.NoError(err)
+	err = os.MkdirAll(filepath.Join(root, "rootfs"), 0755)
+	require.NoError(err)
+	// The only code change is in the root commit
+	hash1, _, err := gitObj.TaggedCommit("rootfs/file1.txt", "commit1", "v1.0.0", true, author)
+	require.NoError(err)
+	hash2, _, err := gitObj.TaggedCommit("file2.txt", "commit2", "v2.0.0", true, author)
+	require.NoError(err)
+
+	hashes, err := FindCodeChange(repo, *hash2, []string{"rootfs"})
+	require.NoError(err)
+	require.Equal([]plumbing.Hash{*hash1, *hash2}, hashes)
 }

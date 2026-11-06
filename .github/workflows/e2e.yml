@@ -43,6 +43,9 @@ jobs:
       - name: Test 'ciux get imagetag'
         run: |
           ./_e2e/test_get_imagetag.sh
+      - name: Test 'ciux get image' rebuild on a base image change
+        run: |
+          ./_e2e/test_get_image_base.sh
       - name: Test 'ciux get revision'
         run: |
           ./_e2e/test_get_revision.sh

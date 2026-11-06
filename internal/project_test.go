@@ -2,15 +2,20 @@ package internal
 
 import (
 	"bufio"
+	"fmt"
 	"log/slog"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/k8s-school/ciux/log"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/registry"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
@@ -365,38 +370,77 @@ func TestGetImageNameFinkBroker(t *testing.T) {
 	require.Equal("v3.1.1-rc1-7-g655447f", image.Tag)
 }
 
-// WARNING: This test is not deterministic because it depends on the availability of the registry and of the fink-broker github repository
-func TestFindInRegistryImage(t *testing.T) {
+// commitFile commits an empty file, without tag
+func commitFile(t *testing.T, gitObj Git, filename string) plumbing.Hash {
+	worktree, err := gitObj.Repository.Worktree()
+	require.NoError(t, err)
+	root, err := gitObj.GetRoot()
+	require.NoError(t, err)
+	_, err = os.Create(filepath.Join(root, filename))
+	require.NoError(t, err)
+	_, err = worktree.Add(filename)
+	require.NoError(t, err)
+	hash, err := worktree.Commit("Add "+filename, &git.CommitOptions{Author: &author})
+	require.NoError(t, err)
+	return hash
+}
 
+func TestFindInRegistryImage(t *testing.T) {
 	require := require.New(t)
 
-	log.Init(3)
+	server := httptest.NewServer(registry.New())
+	defer server.Close()
+	host := strings.TrimPrefix(server.URL, "http://")
 
-	project, err := setupFinkBrokerProject()
+	gitObj, err := initGitRepo("ciux-findinregistry-test-")
 	require.NoError(err)
+	hash1, _, err := gitObj.TaggedCommit("first.txt", "first", "v1.0.0", true, author)
+	require.NoError(err)
+	hash2 := commitFile(t, gitObj, "second.txt")
+	hash3 := commitFile(t, gitObj, "third.txt")
+	hashes := []plumbing.Hash{*hash1, hash2, hash3}
 
-	// Test when image is found in the registry
-	imageName := "fink-broker-noscience"
-	hashes := []plumbing.Hash{
-		// The hashes are the first 2 commits of the fink-broker repository
-		plumbing.NewHash("00bdb0af525af5ac3fd0445ce31683ead75d68f5"),
-		plumbing.NewHash("1f34ce22f8648f0e85e34b15e4ca1633b63092b5"),
-		// This hash has a corresponding image in the fink-broker repository
-		plumbing.NewHash("655447f544bc4e26ea0c5d23d35ac4772d20ed73"),
+	project := Project{GitMain: &gitObj, ImageRegistry: host}
+
+	// Only the image of the second commit is in the registry
+	rev, err := gitObj.GetRevision(hash2)
+	require.NoError(err)
+	tag := rev.GetVersion()
+	require.Equal("v1.0.0-1-g"+hash2.String()[:7], tag)
+	base := randomImage(t)
+	ref, err := name.ParseReference(fmt.Sprintf("%s/myimage:%s", host, tag))
+	require.NoError(err)
+	require.NoError(remote.Write(ref, builtOn(t, base)))
+	urlBase := pushImage(t, host, "base", base)
+	urlOtherBase := pushImage(t, host, "other-base", randomImage(t))
+
+	tests := []struct {
+		name      string
+		imageName string
+		baseImage string
+		found     bool
+	}{
+		{"image of one of the commits, no base declared", "myimage", "", true},
+		{"image built on the base", "myimage", urlBase, true},
+		{"image not built on the base", "myimage", urlOtherBase, false},
+		{"image not in the registry", "non-existent-image", "", false},
 	}
-	image, err := project.findInRegistryImage(imageName, hashes)
-	require.NoError(err)
-	require.NotNil(image)
-	require.True(image.InRegistry)
-	require.Equal(project.ImageRegistry, image.Registry)
-	require.Equal(imageName, image.Name)
-	require.Equal("v3.1.1-rc1-7-g655447f", image.Tag)
-
-	// Test when image is not found in the registry
-	imageName = "non-existent-image"
-	image, err = project.findInRegistryImage(imageName, hashes)
-	require.NoError(err)
-	require.Nil(image)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			project.BaseImage = tt.baseImage
+			image, err := project.findInRegistryImage(tt.imageName, hashes)
+			require.NoError(err)
+			if !tt.found {
+				require.Nil(image)
+				return
+			}
+			require.NotNil(image)
+			require.True(image.InRegistry)
+			require.Equal(host, image.Registry)
+			require.Equal(tt.imageName, image.Name)
+			require.Equal(tag, image.Tag)
+		})
+	}
 }
 
 func TestProjectGetName(t *testing.T) {

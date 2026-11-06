@@ -44,6 +44,8 @@ type DepConfig struct {
 	Pull    bool       `mapstructure:"pull" default:"false"`
 	Package string     `mapstructure:"package" default:""`
 	Labels  labels.Set `mapstructure:"labels"`
+	// Name of the build of the project image which uses Image as base image
+	BaseOf string `mapstructure:"baseOf" default:""`
 }
 
 type ProjConfig struct {
@@ -51,4 +53,6 @@ type ProjConfig struct {
 	Registry     string      `mapstructure:"registry" default:""`
 	Dependencies []DepConfig `mapstructure:"dependencies"`
 	SourcePathes []string    `mapstructure:"sourcePathes"`
+	// Build of the project image without suffix, see DepConfig.BaseOf
+	DefaultBuild string `mapstructure:"defaultBuild" default:""`
 }
