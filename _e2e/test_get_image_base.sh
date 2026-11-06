@@ -1,7 +1,12 @@
 #!/bin/bash
 
 # Check that 'ciux get image --check' rebuilds an image whose base image,
-# a dependency labelled "build" in .ciux, changed without any source change
+# the dependency with "baseOf: <build>" in .ciux, changed without any source
+# change, and that it gives this base image to the build in CIUX_BASE_IMAGE.
+# As in fink-broker, the "science" base is built on the "noscience" one, and
+# only the "science" base is bumped: the old image still starts with the
+# layers of the current "noscience" base, so only the base of the build must
+# be checked. "science" is the default build: its image has no suffix.
 
 set -euxo pipefail
 
@@ -17,16 +22,25 @@ docker rm -f "$registry_container" >/dev/null 2>&1 || true
 docker run -d --name "$registry_container" -p "$registry_port:5000" registry:2
 trap 'docker rm -f "$registry_container" >/dev/null 2>&1 || true' EXIT
 
-# Build and push the two versions of the base image
-for version in v1 v2; do
-    base_dir="$tmp_dir/base-$version"
+# Build and push an image from a Dockerfile given on stdin
+function build_base() {
+    local image="$1"
+    local base_dir="$tmp_dir/$(echo "$image" | tr ':/' '__')"
     mkdir -p "$base_dir"
-    cat > "$base_dir/Dockerfile" <<EOF
+    cat > "$base_dir/Dockerfile"
+    docker build -t "$registry/$image" "$base_dir"
+    docker push "$registry/$image"
+}
+
+build_base noscience:v1 <<EOF
 FROM busybox:1.36
-RUN echo "base $version" > /base-version
+RUN echo "noscience v1" > /noscience-version
 EOF
-    docker build -t "$registry/base:$version" "$base_dir"
-    docker push "$registry/base:$version"
+for version in v1 v2; do
+    build_base science:$version <<EOF
+FROM $registry/noscience:v1
+RUN echo "science $version" > /science-version
+EOF
 done
 
 project="get_image_base"
@@ -44,10 +58,12 @@ registry: $registry
 sourcePathes:
   - Dockerfile
   - rootfs
+defaultBuild: science
 dependencies:
-  - image: $registry/base:$1
-    labels:
-      build: ""
+  - image: $registry/noscience:v1
+    baseOf: noscience
+  - image: $registry/science:$1
+    baseOf: science
 EOF
 }
 
@@ -59,31 +75,45 @@ COPY rootfs /rootfs
 EOF
 echo "Hello World" > "$git_dir/rootfs/hello.txt"
 git add .
-git commit -m "Add project built on base v1"
+git commit -m "Add project built on science v1"
 git tag -a "$git_tag_v1" -m "Release $git_tag_v1"
 
-# Build and push the project image, as a CI would do, if ciux asks for it
+# Build and push the project image, as a CI would do, if ciux asks for it,
+# on the base image given by ciux
 function build_if_needed() {
-    $(ciux get image --check "$git_dir" --env)
+    $(ciux get image --check "$git_dir" --build science --env)
+    check_equal "$CIUX_BASE_IMAGE" "$registry/science:$1"
     if [ "$CIUX_BUILD" = true ]; then
-        docker build -t "$CIUX_IMAGE_URL" --build-arg base_image="$registry/base:$1" "$git_dir"
+        docker build -t "$CIUX_IMAGE_URL" --build-arg base_image="$CIUX_BASE_IMAGE" "$git_dir"
         docker push "$CIUX_IMAGE_URL"
     fi
 }
 
-ink "Image built on base v1"
+ink "Image built on science v1"
 build_if_needed v1
+img_url=$(ciux get image --check "$git_dir" --build science)
+check_equal "$img_url" "Image: $registry/$project:$git_tag_v1, in registry: true"
 img_url=$(ciux get image --check "$git_dir")
 check_equal "$img_url" "Image: $registry/$project:$git_tag_v1, in registry: true"
 
-ink "Bump the base image to v2 in .ciux, without any source change"
+ink "The noscience build has a suffix and is not built yet"
+img_url=$(ciux get image --check "$git_dir" --build noscience)
+check_equal "$img_url" "Image: $registry/$project-noscience:$git_tag_v1, in registry: false"
+
+ink "Bump the science base image to v2 in .ciux, without any source change"
 write_ciux_config v2
-git commit -am "Use base v2"
+git commit -am "Use science v2"
 bump_tag="${git_tag_v1}-1-g$(git rev-parse --short HEAD)"
-img_url=$(ciux get image --check "$git_dir")
+img_url=$(ciux get image --check "$git_dir" --build science)
 check_equal "$img_url" "Image: $registry/$project:$bump_tag, in registry: false"
 
-ink "Image rebuilt on base v2"
+ink "ciux ignite selects the same image to deploy"
+ciux ignite --selector itest "$git_dir" --build science
+. "$git_dir/.ciux.d/ciux_itest.sh"
+check_equal "$CIUX_IMAGE_URL" "$registry/$project:$bump_tag"
+check_equal "$CIUX_BASE_IMAGE" "$registry/science:v2"
+
+ink "Image rebuilt on science v2"
 build_if_needed v2
-img_url=$(ciux get image --check "$git_dir")
+img_url=$(ciux get image --check "$git_dir" --build science)
 check_equal "$img_url" "Image: $registry/$project:$bump_tag, in registry: true"

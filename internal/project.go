@@ -26,6 +26,8 @@ type Project struct {
 	TemporaryRegistry string
 	Selector          labels.Selector
 	Config            ProjConfig
+	// Base image of the project image, see ProjConfig.BaseImage
+	BaseImage string
 }
 
 func NewCoreProject(repository_path string, forcedBranch string) (Project, ProjConfig, error) {
@@ -487,6 +489,12 @@ func (p *Project) WriteOutConfig() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("unable to write variable CIUX_IMAGE_URL to file %s: %v", ciuxConfigFilepath, err)
 	}
+	baseImage := "# Base image of CIUX_IMAGE_URL, empty if none is declared in .ciux\n"
+	baseImage += fmt.Sprintf("export CIUX_BASE_IMAGE=%s\n", p.BaseImage)
+	_, err = f.WriteString(baseImage)
+	if err != nil {
+		return "", fmt.Errorf("unable to write variable CIUX_BASE_IMAGE to file %s: %v", ciuxConfigFilepath, err)
+	}
 	notInRegistry := "# True if CIUX_IMAGE_URL need to be built\n"
 	notInRegistry += fmt.Sprintf("export CIUX_BUILD=%t\n", !p.Image.InRegistry)
 	_, err = f.WriteString(notInRegistry)
@@ -544,10 +552,17 @@ func (p *Project) GetGits() []*Git {
 // GetImageName compute the name and tag for the project image
 //
 //	it checks the git repository for changes
-//	a suffix can be added to image name
+//	the build selects the image name suffix and the base image, see ProjConfig.BaseImage
 //	image existence in the registry can be checked
-func (project *Project) GetImageName(suffix string, checkRegistry bool) error {
+func (project *Project) GetImageName(build string, checkRegistry bool) error {
 	gitMain := project.GitMain
+
+	baseImage, err := project.Config.BaseImage(build)
+	if err != nil {
+		return err
+	}
+	project.BaseImage = baseImage
+	suffix := project.Config.ImageSuffix(build)
 
 	slog.Debug("Project source directories", "sourcePathes", project.SourcePathes)
 
@@ -629,16 +644,16 @@ func (project *Project) findInRegistryImage(imageName string, hashes []plumbing.
 			image.InRegistry = false
 			continue
 		}
-		// Same source code, but the image must also be built on one of the
-		// current base images: a bump of a "build" dependency in .ciux does
-		// not change the source code
-		upToDate, err := IsBuiltFromAny(image.Url(), project.Config.BuildBaseImages())
+		// Same source code, but the image must also be built on the current
+		// base image: a bump of the base image in .ciux does not change the
+		// source code
+		upToDate, err := IsBuiltFromUrl(image.Url(), project.BaseImage)
 		if err != nil {
 			slog.Warn("Unable to check the base image, the image will be rebuilt", "image", image, "error", err)
 		}
 		if !upToDate {
 			image.InRegistry = false
-			slog.Info("Image in registry is not built on a current base image", "image", image)
+			slog.Info("Image in registry is not built on the current base image", "image", image, "base", project.BaseImage)
 			continue
 		}
 		image.InRegistry = true
