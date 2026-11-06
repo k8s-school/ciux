@@ -374,6 +374,10 @@ func TestFindInRegistryImage(t *testing.T) {
 
 	project, err := setupFinkBrokerProject()
 	require.NoError(err)
+	// This old image is not built on the current fink-deps base images of
+	// fink-broker: only check the lookup by commit hash here, the base image
+	// check is tested in base_image_test.go
+	project.Config.Dependencies = nil
 
 	// Test when image is found in the registry
 	imageName := "fink-broker-noscience"

@@ -627,11 +627,23 @@ func (project *Project) findInRegistryImage(imageName string, hashes []plumbing.
 		_, _, errRegistry := image.Desc()
 		if errRegistry != nil {
 			image.InRegistry = false
-		} else {
-			image.InRegistry = true
-			slog.Debug("Found image in registry", "image", image)
-			break
+			continue
 		}
+		// Same source code, but the image must also be built on one of the
+		// current base images: a bump of a "build" dependency in .ciux does
+		// not change the source code
+		upToDate, err := IsBuiltFromAny(image.Url(), project.Config.BuildBaseImages())
+		if err != nil {
+			slog.Warn("Unable to check the base image, the image will be rebuilt", "image", image, "error", err)
+		}
+		if !upToDate {
+			image.InRegistry = false
+			slog.Info("Image in registry is not built on a current base image", "image", image)
+			continue
+		}
+		image.InRegistry = true
+		slog.Debug("Found image in registry", "image", image)
+		break
 	}
 	if image.InRegistry {
 		return &image, nil
