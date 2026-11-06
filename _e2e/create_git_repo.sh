@@ -15,8 +15,9 @@ fi
 mkdir "$git_dir"
 cd "$git_dir"
 git init "$git_dir"
-git config --global user.email "you@example.com"
-git config --global user.name "Your Name"
+# Local identity: never change the global git config of the user
+git config user.email "you@example.com"
+git config user.name "Your Name"
 
 mkdir -p "$git_dir/rootfs"
 
