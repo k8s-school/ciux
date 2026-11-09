@@ -64,7 +64,7 @@ var igniteCmd = &cobra.Command{
 
 		internal.Infof("%s", project.String())
 
-		err = project.GetImageName(suffix, true)
+		err = project.GetImageName(build, true)
 		internal.FailOnError(err)
 		internal.Infof("Image:\n%s", project.Image)
 
@@ -95,7 +95,7 @@ func init() {
 		"Remove the dependencies already cloned in the workspace and clone them again on their work branch. "+
 			"Default: $CIUX_REFRESH_DEPS. Without it, such a repository is used as is, whatever branch it is on")
 	igniteCmd.PersistentFlags().StringVarP(&branch, "branch", "b", "", "current branch for the project, retrieved from git if not specified")
-	igniteCmd.Flags().StringVarP(&suffix, "suffix", "p", "", "Suffix to add to the image name")
+	addBuildFlags(igniteCmd)
 	igniteCmd.Flags().StringVarP(&tmpRegistry, "tmp-registry", "t", "", "Name of temporary registry used to store the image during the ci process")
 
 	util.AddLabelSelectorFlagVar(igniteCmd, &labelSelector)
