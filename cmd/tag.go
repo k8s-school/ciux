@@ -5,6 +5,8 @@ package cmd
 
 import (
 	"fmt"
+	"os/exec"
+	"strings"
 
 	"github.com/k8s-school/ciux/internal"
 	"github.com/spf13/cobra"
@@ -29,18 +31,19 @@ and push it to the origin remote. With --dry-run, only print the commands.`,
 		newTag, err := rev.UpgradeTag()
 		internal.FailOnError(err)
 
-		gitCmd := fmt.Sprintf("git -C '%s'", repositoryPath)
-		tagCmd := fmt.Sprintf("%s tag -a -m 'Release %s' '%s'", gitCmd, newTag, newTag)
-		pushCmd := fmt.Sprintf("%s push origin '%s'", gitCmd, newTag)
+		tagArgs := []string{"tag", "-a", "-m", "Release " + newTag, newTag}
+		// Fully qualified refspec: a branch with the same name is not pushed,
+		// and --no-follow-tags pushes no other tag, whatever the git config
+		pushArgs := []string{"push", "--no-follow-tags", "origin", "refs/tags/" + newTag}
 		if dryRun {
-			fmt.Println(tagCmd)
-			fmt.Println(pushCmd)
+			fmt.Println(shellJoin(append([]string{"git", "-C", repositoryPath}, tagArgs...)))
+			fmt.Println(shellJoin(append([]string{"git", "-C", repositoryPath}, pushArgs...)))
 			return
 		}
-		internal.FailOnError(run(tagCmd))
-		if err := run(pushCmd); err != nil {
+		internal.FailOnError(runGit(repositoryPath, tagArgs...))
+		if err := runGit(repositoryPath, pushArgs...); err != nil {
 			// Remove the local tag, so that the command can be run again
-			if delErr := run(fmt.Sprintf("%s tag -d '%s'", gitCmd, newTag)); delErr != nil {
+			if delErr := runGit(repositoryPath, "tag", "-d", newTag); delErr != nil {
 				err = fmt.Errorf("%v\nunable to delete local tag %s: %v", err, newTag, delErr)
 			}
 			internal.FailOnError(err)
@@ -49,13 +52,24 @@ and push it to the origin remote. With --dry-run, only print the commands.`,
 	},
 }
 
-// run runs a shell command, its error includes the command stderr
-func run(command string) error {
-	_, stderr, err := internal.ExecCmd(command, false)
+// runGit runs git in repositoryPath, without a shell, its error includes
+// the git output
+func runGit(repositoryPath string, args ...string) error {
+	cmd := exec.Command("git", append([]string{"-C", repositoryPath}, args...)...)
+	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("%v: %s", err, stderr)
+		return fmt.Errorf("git %s: %v\n%s", strings.Join(args, " "), err, out)
 	}
 	return nil
+}
+
+// shellJoin returns args as a command line which can be pasted in a shell
+func shellJoin(args []string) string {
+	quoted := make([]string, len(args))
+	for i, arg := range args {
+		quoted[i] = "'" + strings.ReplaceAll(arg, "'", `'\''`) + "'"
+	}
+	return strings.Join(quoted, " ")
 }
 
 // checkTaggable returns an error if HEAD must not get a new release tag:
