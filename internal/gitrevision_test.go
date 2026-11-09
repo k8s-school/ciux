@@ -7,7 +7,6 @@ import (
 )
 
 func TestGetVersion(t *testing.T) {
-	require := require.New(t)
 	tests := []struct {
 		name     string
 		rev      GitRevision
@@ -48,6 +47,7 @@ func TestGetVersion(t *testing.T) {
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
+			require := require.New(t)
 			actual := tt.rev.GetVersion()
 			require.Equal(tt.expected, actual)
 		})
@@ -56,7 +56,6 @@ func TestGetVersion(t *testing.T) {
 }
 
 func TestUpgradeTag(t *testing.T) {
-	require := require.New(t)
 
 	tests := []struct {
 		name           string
@@ -101,6 +100,7 @@ func TestUpgradeTag(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			require := require.New(t)
 
 			result, err := tt.revision.UpgradeTag()
 

@@ -46,7 +46,7 @@ func (rev *GitRevision) UpgradeTag() (string, error) {
 	// Get the latest tag
 	tag := rev.Tag
 	if tag == "" {
-		return "v0", nil
+		return "v0.0.1-rc0", nil
 	}
 	// Upgrade the tag
 	semver := SemVerParse(tag)
