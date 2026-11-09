@@ -117,3 +117,16 @@ ink "Image rebuilt on science v2"
 build_if_needed v2
 img_url=$(ciux get image --check "$git_dir" --build science)
 check_equal "$img_url" "Image: $registry/$project:$bump_tag, in registry: true"
+
+ink "Rebuild the science v2 base in place, under the same tag, without any change in the project"
+build_base science:v2 <<EOF2
+FROM $registry/noscience:v1
+RUN echo "science v2, rebuilt" > /science-version
+EOF2
+img_url=$(ciux get image --check "$git_dir" --build science)
+check_equal "$img_url" "Image: $registry/$project:$bump_tag, in registry: false"
+
+ink "Image rebuilt on the new science v2, under the same tag"
+build_if_needed v2
+img_url=$(ciux get image --check "$git_dir" --build science)
+check_equal "$img_url" "Image: $registry/$project:$bump_tag, in registry: true"
